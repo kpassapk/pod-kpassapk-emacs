@@ -1,0 +1,18 @@
+#!/usr/bin/env bb
+;; pod-babashka-emacs — babashka pod exposing Emacs (eval elisp, read org as EDN).
+;; This file is the pod executable: babashka launches it and speaks the pod
+;; protocol over stdio. It locates resources/ and vendor/ relative to itself,
+;; so it works regardless of the current working directory.
+
+(require '[babashka.classpath :as cp]
+         '[clojure.java.io :as io])
+
+(def ^:private root
+  (-> (or (System/getProperty "babashka.file") *file*)
+      io/file .getCanonicalFile .getParentFile))
+
+(cp/add-classpath (.getPath (io/file root "src")))
+
+(require '[pod-babashka-emacs.shim :as shim])
+
+(shim/run (.getPath root))
