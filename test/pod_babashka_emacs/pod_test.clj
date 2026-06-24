@@ -38,6 +38,7 @@
 ;; Resolve the pod-provided fns at call time so the namespace compiles before
 ;; the pod is loaded.
 (defn- ev [code]      ((resolve 'pod.babashka.emacs/eval) code))
+(defn- funcall [& as] (apply (resolve 'pod.babashka.emacs/funcall) as))
 (defn- version []     ((resolve 'pod.babashka.emacs/version)))
 (defn- outline
   ([path]      ((resolve 'pod.babashka.emacs.org/outline) path))
@@ -49,6 +50,8 @@
 (defn- execute
   ([path]      ((resolve 'pod.babashka.emacs.org/execute) path))
   ([path opts] ((resolve 'pod.babashka.emacs.org/execute) path opts)))
+(defn- src-blocks
+  ([path]      ((resolve 'pod.babashka.emacs.org/src-blocks) path)))
 
 ;;;; ------------------------------------------------------------- helpers
 
@@ -72,6 +75,24 @@
       (is (integer? (:major-version v)))
       (is (pos? (:major-version v)))
       (is (string? (:emacs-version v))))))
+
+;;;; ------------------------------------------------------------- deferred load
+
+(deftest org-deferred-load-test
+  (testing "org is a deferred namespace: it loads via load-ns on first require"
+    ;; The `loaded' defonce already did (require 'pod.babashka.emacs.org). org is
+    ;; advertised in describe as deferred (no vars), so that require triggered a
+    ;; `load-ns' op which `require'd pod-emacs-org.el in the child and returned
+    ;; its vars. If load-ns were broken the require — and the whole suite — would
+    ;; have thrown. Here we just confirm the vars resolved and invoke cleanly.
+    (is (some? (resolve 'pod.babashka.emacs.org/execute))
+        "deferred org vars are present after require")
+    (is (= "hello" (execute sample-org {:index 0}))
+        "an org var invokes correctly through the deferred-loaded namespace"))
+
+  (testing "a second require of the deferred namespace is idempotent"
+    (require '[pod.babashka.emacs.org :as org] :reload)
+    (is (= 2 (count (vec (src-blocks sample-org)))))))
 
 ;;;; ------------------------------------------------------------- eval
 
@@ -137,6 +158,22 @@
       (is (some? e))
       (is (= "void-function" (:type (ex-data e)))))))
 
+;;;; ------------------------------------------------------------- funcall
+
+(deftest funcall-test
+  (testing "calls a named elisp function with EDN-marshalled data args"
+    (is (= "HI" (funcall "upcase" "hi")))
+    (is (= 6   (funcall "+" 1 2 3)))
+    (is (= "x-7" (funcall "format" "%s-%d" "x" 7))))
+
+  (testing "keyword and vector args round-trip into elisp"
+    (is (= ":foo" (funcall "symbol-name" :foo)))
+    (is (= 3 (funcall "length" [10 20 30]))))
+
+  (testing "an unknown function throws with :type void-function"
+    (let [e (try (funcall "no-such-fn-xyz" 1) (catch Exception e e))]
+      (is (= "void-function" (:type (ex-data e)))))))
+
 ;;;; ------------------------------------------------------------- org
 
 (deftest org-outline-test
@@ -178,6 +215,23 @@
     (let [{:keys [children]} (to-edn sample-org)
           all (tree-seq #(seq (:children %)) :children {:children children})]
       (is (some :body all) "at least one node should carry :body text"))))
+
+;;;; ------------------------------------------------------------- org/src-blocks
+
+(deftest org-src-blocks-test
+  (testing "src-blocks lists every block in document order with rich fields"
+    (let [bs (vec (src-blocks sample-org))]
+      (is (= 2 (count bs)) "sample.org has a sh block and a yaml block")
+      (is (= [0 1] (mapv :index bs)) "indices are 0-based, in document order")
+      (is (= ["sh" "yaml"] (mapv :lang bs)))
+      (is (every? :begin bs) "each block carries a buffer position")
+      (is (= "echo hello" (:body (first bs))))
+      (is (= "sample.yaml" (get-in bs [1 :header-args :tangle]))
+          "header-args surfaces babel params like :tangle")))
+
+  (testing ":index from src-blocks round-trips into execute"
+    (let [bs (vec (src-blocks sample-org))]
+      (is (= "hello" (execute sample-org {:index (:index (first bs))}))))))
 
 ;;;; ------------------------------------------------------------- org/execute
 

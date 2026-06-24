@@ -21,7 +21,6 @@
 (require 'parseedn)
 (require 'cl-lib)
 (require 'pod-emacs-util)
-(require 'pod-emacs-org)
 
 (defvar pod-emacs--in-buffer-name " *pod-emacs-in*"
   "Name of the unibyte buffer accumulating raw bencode bytes from stdin.")
@@ -39,6 +38,36 @@
         (setq i (+ i chunk))))
     (send-string-to-terminal "\n")))
 
+;;;; ---------------------------------------------------------------- registry
+
+;; Feature modules (pod-emacs-org, and any pod-emacs-* you add later) register
+;; themselves here instead of being hard-wired into describe/dispatch.  Core
+;; knows nothing of their internals; the dependency runs one way (modules
+;; require core).  Modules load *lazily*: a feature's namespace is advertised
+;; as deferred in `describe', and the module is `require'd only when the
+;; babashka client first requires that namespace (a `load-ns' op).
+
+(defvar pod-emacs--namespaces nil
+  "Registered namespaces, an alist (NS-NAME . VARS).
+NS-NAME is the fully-qualified namespace string; VARS is an alist of
+\(VAR-NAME . HANDLER), where HANDLER is applied to the invoke args.")
+
+(defvar pod-emacs--deferred
+  '(("pod.babashka.emacs.org" . pod-emacs-org))
+  "Alist of deferred namespace (string) -> elisp feature (symbol).
+Each feature is `require'd lazily on the first `load-ns' for its namespace,
+not at startup, so scripts that only `eval'/`funcall' never pay to load
+org-mode.  The module is expected to call `pod-emacs-register' as it loads.
+To add a feature: drop a `pod-emacs-FOO.el' on the load path and add an entry
+here.  This is the only place core learns a feature exists — no filesystem
+scanning, no environment variables.")
+
+(defun pod-emacs-register (ns vars)
+  "Register namespace NS (string) exposing VARS.
+VARS is an alist of (VAR-NAME . HANDLER); HANDLER is `apply'd to the
+decoded invoke args.  Re-registering NS replaces its previous vars."
+  (setf (alist-get ns pod-emacs--namespaces nil nil #'equal) vars))
+
 ;;;; ---------------------------------------------------------------- describe
 
 (defun pod-emacs--var (name &rest kvs)
@@ -46,23 +75,53 @@
   (apply #'pod-emacs--ht "name" name kvs))
 
 (defun pod-emacs--describe-reply ()
-  "Build the describe reply hash-table."
-  (pod-emacs--ht
-   "format" "edn"
-   "namespaces"
-   (list
+  "Build the describe reply hash-table.
+Eagerly-registered namespaces (core) ship their vars; each not-yet-loaded
+entry in `pod-emacs--deferred' ships as a `defer' stub, so the client loads
+it — and its elisp module — on first `require' via a `load-ns' op."
+  (let* ((loaded (mapcar #'car pod-emacs--namespaces))
+         (eager (mapcar (lambda (ns)
+                          (pod-emacs--ht
+                           "name" (car ns)
+                           "vars" (mapcar (lambda (v) (pod-emacs--var (car v)))
+                                          (cdr ns))))
+                        (reverse pod-emacs--namespaces)))
+         (deferred (delq nil
+                         (mapcar (lambda (d)
+                                   (unless (member (car d) loaded)
+                                     (pod-emacs--ht "name" (car d)
+                                                    "defer" "true")))
+                                 pod-emacs--deferred))))
     (pod-emacs--ht
-     "name" "pod.babashka.emacs"
-     "vars" (list (pod-emacs--var "eval")
-                  (pod-emacs--var "eval-file")
-                  (pod-emacs--var "version")))
-    (pod-emacs--ht
-     "name" "pod.babashka.emacs.org"
-     "vars" (list (pod-emacs--var "outline")
-                  (pod-emacs--var "headlines")
-                  (pod-emacs--var "to-edn")
-                  (pod-emacs--var "execute"))))
-   "ops" (pod-emacs--ht "shutdown" (make-hash-table :test 'equal))))
+     "format" "edn"
+     "namespaces" (append eager deferred)
+     "ops" (pod-emacs--ht "shutdown" (make-hash-table :test 'equal)
+                          "load-ns" (make-hash-table :test 'equal)))))
+
+(defun pod-emacs--load-ns (ns id)
+  "Handle a `load-ns' request for namespace NS, replying to request ID.
+`require' the feature mapped in `pod-emacs--deferred' (which registers NS),
+then send back its vars.  On failure reply with an error status so the
+client's `require' throws cleanly."
+  (condition-case err
+      (let ((feature (alist-get ns pod-emacs--deferred nil nil #'equal)))
+        (unless feature (error "No such deferred namespace: %s" ns))
+        (require feature)
+        (let ((vars (alist-get ns pod-emacs--namespaces nil nil #'equal)))
+          (unless vars (error "Namespace %s registered no vars on load" ns))
+          (pod-emacs--send
+           (pod-emacs--ht
+            "name" ns
+            "vars" (mapcar (lambda (v) (pod-emacs--var (car v))) vars)
+            "id" id))))
+    (error
+     (pod-emacs--send
+      (pod-emacs--ht
+       "id" id
+       "ex-message" (error-message-string err)
+       "ex-data" (pod-emacs--encode-edn
+                  (pod-emacs--ht :type (symbol-name (car err)) :ns ns))
+       "status" (list "done" "error"))))))
 
 ;;;; ---------------------------------------------------------------- eval
 
@@ -79,27 +138,39 @@
         (eval (cons 'progn (nreverse forms)) t)
       nil)))
 
+(defun pod-emacs--funcall (f &rest args)
+  "Call the elisp function named F with ARGS (already EDN-decoded values).
+ARGS are real data, so nothing is string-spliced into elisp."
+  (unless f (error "funcall: missing function name"))
+  (apply (if (symbolp f) f (intern f)) args))
+
+(defun pod-emacs--version ()
+  "Build the version reply hash-table."
+  (pod-emacs--ht :emacs-version emacs-version
+                 :major-version emacs-major-version
+                 :exec (or (car command-line-args) "emacs")))
+
+;; Core's own namespace, registered like any feature module.
+(pod-emacs-register
+ "pod.babashka.emacs"
+ `(("eval"      . ,#'pod-emacs--eval-string)
+   ("eval-file" . ,(lambda (path)
+                     (load (expand-file-name path) nil t t)
+                     (file-name-nondirectory path)))
+   ("funcall"   . ,#'pod-emacs--funcall)
+   ("version"   . ,#'pod-emacs--version)))
+
 (defun pod-emacs--dispatch (var args)
-  "Run pod VAR (a fully-qualified string) with ARGS (a list)."
-  (cond
-   ((equal var "pod.babashka.emacs/eval")
-    (pod-emacs--eval-string (nth 0 args)))
-   ((equal var "pod.babashka.emacs/eval-file")
-    (load (expand-file-name (nth 0 args)) nil t t)
-    (file-name-nondirectory (nth 0 args)))
-   ((equal var "pod.babashka.emacs/version")
-    (pod-emacs--ht :emacs-version emacs-version
-                   :major-version emacs-major-version
-                   :exec (or (car command-line-args) "emacs")))
-   ((equal var "pod.babashka.emacs.org/outline")
-    (pod-emacs-org-outline (nth 0 args) (nth 1 args)))
-   ((equal var "pod.babashka.emacs.org/headlines")
-    (pod-emacs-org-headlines (nth 0 args) (nth 1 args)))
-   ((equal var "pod.babashka.emacs.org/to-edn")
-    (pod-emacs-org-to-edn (nth 0 args)))
-   ((equal var "pod.babashka.emacs.org/execute")
-    (pod-emacs-org-execute (nth 0 args) (nth 1 args)))
-   (t (error "Unknown pod var: %s" var))))
+  "Run pod VAR (a fully-qualified \"ns/name\" string) with ARGS (a list)."
+  (let* ((slash (string-search "/" var))
+         (ns    (and slash (substring var 0 slash)))
+         (name  (and slash (substring var (1+ slash))))
+         (handler (alist-get name
+                             (alist-get ns pod-emacs--namespaces nil nil #'equal)
+                             nil nil #'equal)))
+    (if handler
+        (apply handler args)
+      (error "Unknown pod var: %s" var))))
 
 ;;;; ---------------------------------------------------------------- dispatch
 
@@ -132,6 +203,8 @@
     (cond
      ((equal op "describe")
       (pod-emacs--send (pod-emacs--describe-reply)) nil)
+     ((equal op "load-ns")
+      (pod-emacs--load-ns (gethash "ns" msg) id) nil)
      ((equal op "invoke")
       (pod-emacs--invoke msg id) nil)
      ((equal op "shutdown")
@@ -165,7 +238,8 @@ Return nil to request shutdown, t to keep running."
     keep))
 
 (defun pod-emacs-main ()
-  "Run the pod protocol loop over base64-framed stdin/stdout."
+  "Run the pod protocol loop over base64-framed stdin/stdout.
+Only core is loaded at startup; feature modules load lazily on `load-ns'."
   (set-binary-mode 'stdin t)
   (let ((buf (get-buffer-create pod-emacs--in-buffer-name)))
     (with-current-buffer buf

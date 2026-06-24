@@ -1,11 +1,8 @@
 (ns pod-babashka-emacs.shim
   "The pod executable. Owns babashka-facing stdio and transcodes the raw bencode
-  byte stream to/from base64 lines for an `emacs --batch' child (the brain).
+  byte stream to/from base64 lines for an `emacs --batch' child.
 
-  Why: emacs --batch can read newline-delimited stdin (read-string) but not
-  arbitrary raw bytes, while babashka writes raw, newline-free bencode. base64
-  lines are ASCII + newline-framed (safe for read-string) and carry arbitrary
-  bytes losslessly. See docs/adr/0001-transport-architecture.md."
+  See docs/adr/0001-transport-architecture.md."
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
             [pod-babashka-emacs.emacs :as emacs])
