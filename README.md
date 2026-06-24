@@ -6,7 +6,7 @@ A [babashka pod](https://github.com/babashka/pods) that exposes Emacs to babashk
 
 I got the idea for this project when I was trying out [clime](https://github.com/cosmicz/clime) to expose some elisp functions as a command line (CLI) tool. 
 It worked, but I wasn't sure I wanted to learn another CLI framework. What if I could use [lambdaisland/cli][lambdaisland] or [babashka/cli][bb-cli] 
-instead? With this pod, you can!
+instead?
 
 NB: This pod does not require emacs. It will try to download it when not available, and use it as a library. See the Requirements section.
 
@@ -133,13 +133,21 @@ Payload format is **EDN**. The pod exposes two namespaces.
 | Var         | Args               | Returns                              | Notes |
 |-------------|--------------------|--------------------------------------|-------|
 | `eval`      | `[code]`           | the value of the last form, as EDN   | `code` is a string of one or more top-level elisp forms; they are read and evaluated as a `progn`. |
-| `eval-file` | `[path]`           | the file's base name (string)        | `load`s an `.el` file into the (warm) Emacs process. Useful for defining helpers you then call via `eval`. |
+| `eval-file` | `[path]`           | the file's base name (string)        | `load`s an `.el` file into the (warm) Emacs process. Useful for defining helpers you then call via `funcall`. |
+| `funcall`   | `[fn & args]`      | the function's return value, as EDN  | Calls the named elisp function `fn` (string or symbol) with `args`. The args are marshalled from EDN to elisp values, so you pass *data*, not string-spliced code — no `(str "(" ... ")")`. Pairs with `eval-file`: load helpers, then call them with real arguments. |
 | `version`   | `[]`               | map                                  | `{:emacs-version "31.0.50" :major-version 31 :exec "/path/to/emacs"}`. |
 
 ```clojure
 (emacs/eval "(mapcar #'1+ '(1 2 3))")   ;=> (2 3 4)
 (emacs/version)
 ;;=> {:emacs-version "31.0.50", :major-version 31, :exec "/Applications/Emacs.app/Contents/MacOS/Emacs"}
+
+;; funcall passes data, not code — no string-building:
+(emacs/funcall "upcase" "hi")            ;=> "HI"
+(emacs/funcall "format" "%s-%d" "x" 7)   ;=> "x-7"
+;; load your own elisp, then call it with real arguments:
+(emacs/eval-file "my-helpers.el")
+(emacs/funcall "my-report" {:env "prod"} [1 2 3])
 ```
 
 **elisp → EDN value mapping** (via `parseedn`, with a thin wrapper for
@@ -164,7 +172,8 @@ Each reads or runs an org file through real org-mode in a throwaway buffer.
 | `outline`   | `[path]` / `[path opts]` | `{:file :title :children [node ...]}`     | Nested headline tree. `:title` is the `#+TITLE:` keyword (may be `nil`). |
 | `headlines` | `[path]` / `[path opts]` | vector of nodes (flat, document order)    | Same nodes as `outline` but un-nested (no `:children`). |
 | `to-edn`    | `[path]` / `[path opts]` | `{:file :title :children [node ...]}`     | Like `outline`, but every node also gets a `:body` (the entry's text, excluding subheadings). |
-| `execute`   | `[path]` / `[path opts]` | the block's result, as EDN                | Runs one org-babel src block and returns its value. Pick the block with `opts`; see below. The block's language backend autoloads (`sh`/`bash`/… → `ob-shell`, else `ob-LANG`). `org-confirm-babel-evaluate` is bound to `nil`, so blocks run without prompting. |
+| `src-blocks`| `[path]` / `[path opts]` | vector of block nodes (document order)    | Lists every src block so a driver can discover and address them. Each node: `:index` (0-based), `:name` (or `nil`), `:lang`, `:begin`, `:header-args` (map, or `nil`), `:body`. |
+| `execute`   | `[path]` / `[path opts]` | the block's result, as EDN                | Runs one org-babel src block and returns its value. Pick the block with `opts` (`:name` / `:index` from `src-blocks`); see below. The block's language backend autoloads (`sh`/`bash`/… → `ob-shell`, else `ob-LANG`). `org-confirm-babel-evaluate` is bound to `nil`, so blocks run without prompting. |
 
 `opts` is an EDN map. Recognized keys:
 

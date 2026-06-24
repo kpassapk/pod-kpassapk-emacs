@@ -1,18 +1,12 @@
 #!/usr/bin/env bb
-;; An *interactive* runbook: treat an org file as a menu of executable steps.
-;; Each named src block is a step; this TUI lists the blocks and lets you pick
-;; one to run through the pod, then shows the captured result as Clojure data.
+;; Something like runme.dev but with org mode
 ;;
-;;   bb examples/org-execute.clj [path/to/runbook.org]
+;;   bb examples/org-runme.clj [path/to/runbook.org]
 ;;
-;; org-mode owns the literate document and the babel machinery; babashka owns
-;; the orchestration, the UI, and whatever you do with the results.  The TUI is
-;; built on JLine, which ships *inside* babashka — no extra dependency.
-;;
-;; Blocks are run *asynchronously* via the pod protocol (pods/invoke + handlers):
-;; the invoke returns immediately and the result is delivered on a background
-;; thread, so a slow step (say `sleep 8`) animates a spinner instead of freezing
-;; the whole UI until the result lands.
+;; Blocks are run *off the UI thread* by wrapping the ordinary synchronous
+;; `org/execute' var in a `future'.  Pod invokes are id-routed, so the call
+;; doesn't block the reader; we poll the future and animate a spinner while a
+;; slow step (say `sleep 8`) runs, instead of freezing the whole UI.
 
 (require '[babashka.pods :as pods]
          '[clojure.java.io :as io]
@@ -26,34 +20,8 @@
 (def org-file (or (first *command-line-args*)
                   (.getPath (io/file here "runbook.org"))))
 
-(def pod-id (:pod/id (pods/load-pod [pod])))
-(require '[pod.babashka.emacs :as emacs]
-         '[pod.babashka.emacs.org :as org])
-
-;;;; ---------------------------------------------------- read the menu via org
-
-(defn src-blocks
-  "Ask Emacs' real org-mode to list every src block in PATH, in document order.
-  Returns a vector of {:index :name :lang}; :name is nil for unnamed blocks."
-  [path]
-  (let [elisp
-        (str "(let ((p (expand-file-name " (pr-str path) ")))"
-             "  (with-temp-buffer"
-             "    (insert-file-contents p)"
-             "    (let ((org-inhibit-startup t) (org-element-use-cache nil) (org-mode-hook nil))"
-             "      (delay-mode-hooks (org-mode)))"
-             "    (let (acc (i 0))"
-             "      (org-babel-map-src-blocks nil"
-             "        (let* ((info (org-babel-get-src-block-info t))"
-             "               (lang (nth 0 info))"
-             "               (name (nth 4 info)))"
-             "          (push (pod-emacs--ht :index i"
-             "                               :name (and name (> (length name) 0)"
-             "                                          (substring-no-properties name))"
-             "                               :lang lang) acc)"
-             "          (setq i (1+ i))))"
-             "      (vconcat (nreverse acc)))))")]
-    (vec (emacs/eval elisp))))
+(pods/load-pod [pod])
+(require '[pod.babashka.emacs.org :as org])
 
 (defn block-label [b]
   (or (:name b) (format "«block %d»" (:index b))))
@@ -106,34 +74,32 @@
 (def spinner ["⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏"])
 
 (defn run-block!
-  "Run B through the pod *asynchronously* and show the result.
-  pods/invoke returns at once; the success/error handler delivers to a promise
-  on the pod's reader thread, so we can animate a spinner while Emacs works."
+  "Run B through the pod on a background thread and show the result.
+  `org/execute' is synchronous, so we wrap it in a `future' and poll: the pod
+  reply is id-routed, so the call returns without blocking the UI thread and we
+  can animate a spinner while Emacs works.  Errors come back tagged, not thrown."
   [terminal b]
   (let [w      (.writer terminal)
         label  (block-label b)
-        result (promise)]
-    (pods/invoke pod-id 'pod.babashka.emacs.org/execute
-                 [org-file (block-selector b)]
-                 {:handlers {:success #(deliver result [:ok %])
-                             :error   #(deliver result [:err (:ex-message %)])}})
+        result (future (try [:ok (org/execute org-file (block-selector b))]
+                            (catch Exception e [:err (ex-message e)])))]
     (loop [i 0]
-      (let [r (deref result 120 ::pending)]               ; ~8 fps, non-blocking
-        (if (= r ::pending)
-          (do (.print w (str (clear) (hide-cursor)
-                             "Running " label " " (nth spinner (mod i (count spinner)))
-                             "\r\n\r\n(Emacs is working — the block is still running)"))
-              (.flush w)
-              (recur (inc i)))
-          (let [[status val] r]
-            (.print w (str (clear) (show-cursor)
-                           "Ran " label "\r\n\r\n"
-                           (if (= status :ok)
-                             (str "=> " (pr-str val))
-                             (str "ERROR: " val))
-                           "\r\n\r\nPress any key to return …"))
+      (if-not (realized? result)
+        (do (.print w (str (clear) (hide-cursor)
+                           "Running " label " " (nth spinner (mod i (count spinner)))
+                           "\r\n\r\n(Emacs is working — the block is still running)"))
             (.flush w)
-            (read-key (.reader terminal))))))))
+            (Thread/sleep 120)                            ; ~8 fps
+            (recur (inc i)))
+        (let [[status val] @result]
+          (.print w (str (clear) (show-cursor)
+                         "Ran " label "\r\n\r\n"
+                         (if (= status :ok)
+                           (str "=> " (pr-str val))
+                           (str "ERROR: " val))
+                         "\r\n\r\nPress any key to return …"))
+          (.flush w)
+          (read-key (.reader terminal)))))))
 
 (defn tui [terminal blocks]
   (let [reader (.reader terminal)
@@ -166,7 +132,7 @@
 
 ;;;; ---------------------------------------------------------------------- main
 
-(let [blocks   (src-blocks org-file)
+(let [blocks   (vec (org/src-blocks org-file))
       terminal (-> (TerminalBuilder/builder) (.system true) (.build))]
   (cond
     (empty? blocks)               (println "No src blocks in" org-file)

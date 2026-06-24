@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `pod.babashka.emacs/funcall` — call a named elisp function with data arguments
+  marshalled from EDN, instead of building elisp source as a string. Pairs with
+  `eval-file`: `load` your helpers, then call them with real Clojure values.
+- `pod.babashka.emacs.org/src-blocks` — list every org-babel src block in a file
+  as EDN, in document order. Each node carries `:index`, `:name`, `:lang`,
+  `:begin`, `:header-args`, and `:body`. Lets a driver discover and address
+  blocks (then run them with `execute`) without hand-writing elisp.
 - `pod.babashka.emacs.org/execute` — run a single org-babel src block and return
   its result as EDN. Select the block with `:name` or `:index` (0-based); a
   lone block runs with no selector. The language backend autoloads (shell

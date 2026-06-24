@@ -13,6 +13,7 @@
 ;;; Code:
 
 (require 'org)
+(require 'pod-emacs)
 (require 'pod-emacs-util)
 (require 'subr-x)
 
@@ -128,6 +129,22 @@ else falls back to `ob-LANG'."
   "Return the value of buffer keyword KW (e.g. \"TITLE\"), or nil."
   (cadr (assoc-string kw (org-collect-keywords (list kw)) t)))
 
+(defun pod-emacs-org--header-args (params)
+  "Convert an org-babel PARAMS alist to a keyword-keyed hash-table for EDN.
+Values are stringified so the whole reply stays EDN-encodable; duplicate
+keys (e.g. several `:var') collapse to the last one."
+  (let ((h (make-hash-table :test 'equal)))
+    (dolist (kv params)
+      (when (and (consp kv) (keywordp (car kv)))
+        (let ((v (cdr kv)))
+          (puthash (car kv)
+                   (cond ((null v)     nil)
+                         ((stringp v)  (pod-emacs-org--str v))
+                         ((symbolp v)  (symbol-name v))
+                         (t            (format "%S" v)))
+                   h))))
+    (when (> (hash-table-count h) 0) h)))
+
 ;;;; ----------------------------------------------------------- public vars
 
 (defun pod-emacs-org-outline (path &optional opts)
@@ -156,6 +173,31 @@ else falls back to `ob-LANG'."
     (let* ((max-level (pod-emacs-org--opt opts :max-level))
            (flat (pod-emacs-org--collect nil max-level)))
       (vconcat (mapcar #'cdr flat)))))
+
+(defun pod-emacs-org-src-blocks (path &optional _opts)
+  "List every src block in org file PATH as EDN, in document order.
+Returns a vector of nodes; each is a hash-table with:
+  :index   <int>     0-based position in document order
+  :name    <string>  the block's `#+name:', or nil
+  :lang    <string>  the source language
+  :begin   <int>     buffer position of the block head
+  :header-args <map> the block's babel header arguments, or nil
+  :body    <string>  the block's source text"
+  (pod-emacs-org--with-file path
+    (let ((acc '()) (i 0))
+      (org-babel-map-src-blocks nil
+        (let* ((info (org-babel-get-src-block-info t))
+               (name (nth 4 info)))
+          (push (pod-emacs--ht
+                 :index i
+                 :name (and name (> (length name) 0) (pod-emacs-org--str name))
+                 :lang (pod-emacs-org--str (nth 0 info))
+                 :begin (or (org-babel-where-is-src-block-head) (point))
+                 :header-args (pod-emacs-org--header-args (nth 2 info))
+                 :body (pod-emacs-org--str (nth 1 info)))
+                acc)
+          (setq i (1+ i))))
+      (vconcat (nreverse acc)))))
 
 (defun pod-emacs-org-execute (path &optional opts)
   "Execute a source block in org file PATH and return its result.
@@ -190,6 +232,16 @@ otherwise signal an error so the caller disambiguates."
                      (length positions) path))))))
       (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
       (org-babel-execute-src-block))))
+
+;;;; ----------------------------------------------------------- registration
+
+(pod-emacs-register
+ "pod.babashka.emacs.org"
+ `(("outline"    . ,#'pod-emacs-org-outline)
+   ("headlines"  . ,#'pod-emacs-org-headlines)
+   ("to-edn"     . ,#'pod-emacs-org-to-edn)
+   ("src-blocks" . ,#'pod-emacs-org-src-blocks)
+   ("execute"    . ,#'pod-emacs-org-execute)))
 
 (provide 'pod-emacs-org)
 ;;; pod-emacs-org.el ends here
