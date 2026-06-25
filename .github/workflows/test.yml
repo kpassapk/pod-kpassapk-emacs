@@ -1,0 +1,24 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Emacs
+        # emacs-nox is enough: the pod drives a headless `emacs --batch' child.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends emacs-nox
+
+      - name: Install Babashka
+        uses: DeLaGuardo/setup-clojure@13.0
+        with:
+          bb: latest
+
+      - name: Run tests
+        run: bb test
