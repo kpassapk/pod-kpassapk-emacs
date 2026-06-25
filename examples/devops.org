@@ -1,0 +1,9 @@
+#+TITLE: A devops.el runbook
+#+TARGET: /ssh:example1.com: (example1)
+
+* Upload a file                                                    :example1:
+
+#+begin_src yaml :tangle ~/foo.yaml
+---
+foo: bar  
+#+end_src

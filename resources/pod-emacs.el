@@ -53,12 +53,24 @@ NS-NAME is the fully-qualified namespace string; VARS is an alist of
 \(VAR-NAME . HANDLER), where HANDLER is applied to the invoke args.")
 
 (defvar pod-emacs--deferred
-  '(("pod.babashka.emacs.org" . pod-emacs-org))
-  "Alist of deferred namespace (string) -> elisp feature (symbol).
-Each feature is `require'd lazily on the first `load-ns' for its namespace,
-not at startup, so scripts that only `eval'/`funcall' never pay to load
-org-mode.  The module is expected to call `pod-emacs-register' as it loads.
-To add a feature: drop a `pod-emacs-FOO.el' on the load path and add an entry
+  '(("pod.babashka.emacs.org" . pod-emacs-org)
+    ("pod.babashka.emacs.devops" .
+     (pod-emacs-devops . (:use-package devops
+				       :ensure t
+				       :vc (:url "https://github.com/kpassapk/devops.el")))))
+  "Alist of clojure namespace (string) -> deferred elisp feature SPEC.
+On the first `load-ns' for a namespace its SPEC is resolved, the feature
+`require'd, and the module is expected to `pod-emacs-register' as it loads.
+Loading is lazy: nothing here runs at startup, so scripts that never require
+a deferred namespace never pay for it.  SPEC is one of:
+
+  FEATURE                      a feature symbol, just `require'd.
+  (FEATURE . (:use-package . DECL))
+                               `package-initialize', then evaluate
+                               (use-package . DECL) to install/load the
+                               package, *before* `require'ing FEATURE.
+
+To add a feature, drop a `pod-emacs-FOO.el' on the load path and add an entry
 here.  This is the only place core learns a feature exists — no filesystem
 scanning, no environment variables.")
 
@@ -98,14 +110,31 @@ it — and its elisp module — on first `require' via a `load-ns' op."
      "ops" (pod-emacs--ht "shutdown" (make-hash-table :test 'equal)
                           "load-ns" (make-hash-table :test 'equal)))))
 
+(defun pod-emacs--prepare-config (config)
+  "Run a deferred namespace's CONFIG before its feature is `require'd.
+CONFIG is the cdr of a `pod-emacs--deferred' cons SPEC; its head keyword
+selects an action.  Only `:use-package' is supported: `package-initialize',
+then evaluate the `(use-package PKG ...)' declaration spliced from the rest of
+CONFIG, so the external package is installed/loaded before the `pod-emacs-FOO'
+module requires it."
+  (pcase config
+    (`(:use-package . ,decl)
+     (require 'package)
+     (package-initialize)
+     (require 'use-package)
+     (eval `(use-package ,@decl) t))
+    (_ (error "Unsupported deferred config: %S" config))))
+
 (defun pod-emacs--load-ns (ns id)
   "Handle a `load-ns' request for namespace NS, replying to request ID.
-`require' the feature mapped in `pod-emacs--deferred' (which registers NS),
-then send back its vars.  On failure reply with an error status so the
-client's `require' throws cleanly."
+Resolve the SPEC mapped in `pod-emacs--deferred', run any `:use-package'
+config, `require' the feature (which registers NS), then send back its vars.
+On failure reply with an error status so the client's `require' throws cleanly."
   (condition-case err
-      (let ((feature (alist-get ns pod-emacs--deferred nil nil #'equal)))
-        (unless feature (error "No such deferred namespace: %s" ns))
+      (let* ((spec (alist-get ns pod-emacs--deferred nil nil #'equal))
+             (feature (if (consp spec) (car spec) spec)))
+        (unless spec (error "No such deferred namespace: %s" ns))
+        (when (consp spec) (pod-emacs--prepare-config (cdr spec)))
         (require feature)
         (let ((vars (alist-get ns pod-emacs--namespaces nil nil #'equal)))
           (unless vars (error "Namespace %s registered no vars on load" ns))
