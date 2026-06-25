@@ -1,4 +1,4 @@
-# pod-babashka-emacs
+# Babashka Emacs Pod
 
 A [babashka pod](https://github.com/babashka/pods) that exposes Emacs to babashka scripts.
 
@@ -8,9 +8,7 @@ I got the idea for this project when I was trying out [clime](https://github.com
 It worked, but I wasn't sure I wanted to learn another CLI framework. What if I could use [lambdaisland/cli][lambdaisland] or [babashka/cli][bb-cli] 
 instead?
 
-NB: This pod does not require emacs. It will try to download it when not available, and use it as a library. See the Requirements section.
-
-Is it crazy? yes. But it may already be useful for those of us with a large amount of elisp we have built up over time, and want to use it beyond the editor.
+It a crazy idea. But it may be useful for those of us with a large amount of elisp we have built up over time, and want to use it beyond the editor.
 
 It seems to be stable, but I'm not sure how far this project can go :) File an issue if there is something you need.
 
@@ -40,10 +38,10 @@ These packages are downloaded with use-package and required when they are used. 
 ## Requirements
 
 - **babashka** — to run your scripts and load the pod.
-- **Emacs** — *optional*. The pod resolves an Emacs binary for the host
-  architecture and will download a portable build if the host has none. If you
+- **Emacs** — The pod resolves an Emacs binary for the host
+  architecture. If you
   already have Emacs on your `PATH`, it is used as-is. See
-  [Emacs resolution](#emacs-resolution--running-without-emacs-installed).
+  [Emacs resolution](#emacs-resolution).
 
 ## Quickstart
 
@@ -78,11 +76,9 @@ Load the pod by local path and call it:
 
 See the `examples` directory for more. 
 
-## API reference
+## Bundled libraries
 
-Payload format is **EDN**. The pod exposes a core namespace
-(`pod.babashka.emacs`) plus a set of feature namespaces that load lazily on
-first `require`.
+Payload format is **EDN**. 
 
 ### `pod.babashka.emacs`
 
@@ -278,6 +274,48 @@ bound to `nil`.
 (devops/execute {:file "infra.org" :name "deploy"})
 ```
 
+
+## Adding libraries
+
+To use built-in emacs package from Clojure, add a file to `resources/`, call `pod-emacs-register` with the functions you want
+to expose, and add the deferred named 
+
+For example, let's say we have want to be able to require `pod.babashka.emacs.foo` from Clojure, with elisp functions `foo-func1` 
+and Clojure functions `(foo/func1)`. We would add a file like this to `resources/pod-emacs-foo.el`:
+
+```
+;;; Code:
+
+(defun pod-emacs-func1 ()
+  (foo-func1))
+... 
+(pod-emacs-register
+ "pod.babashka.emacs.foo"
+ `(("func1"    . ,#'pod-emacs-func1)))
+ 
+(provide 'pod-emacs-foo)
+;;; pod-emacs-foo.el ends here
+```
+
+Finally, we would add add the [named feature](https://www.gnu.org/software/emacs/manual/html_node/elisp/Named-Features.html)  to `pod-emacs--deferred`
+
+```
+(defvar pod-emacs--deferred
+  ... 
+  ("pod.babashka.emacs.foo" . pod-emacs-foo)
+... 
+```
+
+If the library is not built into emacs, you can pass in a `use-package` form. When the library is required (in Clojure), 
+the pod will attempt to install it. For example, here we are installing [devops.el](https://github.com/kpassapk/devops.el):
+
+```
+("pod.babashka.emacs.devops" .
+     (pod-emacs-devops . (:use-package devops
+				       :ensure t
+				       :vc (:url "https://github.com/kpassapk/devops.el"))))
+```
+
 ## Errors
 
 An elisp error becomes a thrown `ex-info` on the babashka side. The Emacs error
@@ -291,7 +329,7 @@ message is the `ex-message`; `ex-data` carries the error symbol and the var:
     (ex-data e)))   ;=> {:type "error", :var "pod.babashka.emacs/eval"}
 ```
 
-## Running without Emacs installed
+## Emacs resolution
 
 When the pod starts, the shim resolves an Emacs binary in this order:
 
@@ -300,26 +338,18 @@ When the pod starts, the shim resolves an Emacs binary in this order:
    (under the cache dir).
 3. **System `emacs`** on `PATH` (on macOS it also checks
    `/Applications/Emacs.app/Contents/MacOS/Emacs`).
-4. **Download a portable build** for the host os/arch into the cache, then use
-   it.
 
 Customize via these environment variables:
 
 | Env var                    | Purpose                                                         |
 |----------------------------|-----------------------------------------------------------------|
 | `POD_BABASHKA_EMACS_BIN`   | Force a specific Emacs executable (skips all other resolution). |
-| `POD_BABASHKA_EMACS_URL`   | Override the portable-build download URL for the host os/arch.  |
 | `POD_BABASHKA_EMACS_CACHE` | Cache directory for downloaded builds and `emacs.log`.          |
 | `BABASHKA_PODS_OS_NAME`    | Babashka's os-name override (used to pick the download).        |
 | `BABASHKA_PODS_OS_ARCH`    | Babashka's os-arch override (used to pick the download).        |
 
 Unless overriden by `$POD_BABASHKA_EMACS_CACHE`, the pod sets the cache directory to
 `$XDG_CACHE_HOME/pod-babashka-emacs` or `~/.cache/pod-babashka-emacs`.
-
-Portable builds currently ship for macOS arm64 and x86_64 (Emacs.app `.dmg`
-builds that bundle their own lisp). On other platforms, install Emacs, set
-`POD_BABASHKA_EMACS_BIN`, or point `POD_BABASHKA_EMACS_URL` at a suitable
-archive.
 
 ## Troubleshooting
 
