@@ -12,24 +12,30 @@ NB: This pod does not require emacs. It will try to download it when not availab
 
 Is it crazy? yes. But it may already be useful for those of us with a large amount of elisp we have built up over time, and want to use it beyond the editor.
 
-I'm not sure this can be stable, or how this project can go :) File an issue if there is something you need.
+It seems to be stable, but I'm not sure how far this project can go :) File an issue if there is something you need.
 
 [lambdaisland]: https://github.com/lambdaisland/cli
 [bb-cli]: https://github.com/babashka/cli
 
-## Org mode
+## What's here
 
-Emacs bundles org mode, a very feature-rich markup language, with its own library for parsing, executing code blocks, exporting documents and source blocks (tangling), etc. 
+This project bundles in these excellent elisp libraries:
 
-There are org mode parsers in many languages, including Clojure. These will be the right choice almost always :)
+- [https://github.com/clojure-emacs/parseedn](parseedn)
+- [https://github.com/clojure-emacs/parseclj](parseclj)
+- [https://github.com/skeeto/emacs-bencode](emacs-bencode)
 
-However, iff you want to 
-- use the "official" org mode parser (emacs)
-- manage to-dos, schedules, agendas using elisp
-- tangle files
-- execute code blocks
+It implements the [https://github.com/babashka/pods#the-protocol](pod protocol) and provides an API for some common emacs packages:
 
-this project might do the trick.
+- org mode
+- org roam
+- calc
+
+These packages are downloaded with use-package and required when they are used. The idea is to add a large library of emacs packages to this project over time.
+
+```
+(require '[pod.babashka.emacs.org-roam :as roam]) ;; org-roam downloaded and required here
+```
 
 ## Requirements
 
@@ -70,59 +76,7 @@ Load the pod by local path and call it:
 ;;             ...]}
 ```
 
-The first call starts the Emacs child process; it stays warm for the rest of
-the session, so subsequent calls are fast.
-
-## Run the example
-
-The flagship example reads an org file through Emacs and then does pure-Clojure
-analysis over the EDN it gets back:
-
-```
-bb examples/org-outline.clj            # uses examples/sample.org
-bb examples/org-outline.clj some.org   # or your own file
-```
-
-A second example treats an org file as an executable **runbook** — each named
-src block is a step, and babashka runs them by name and works with the output:
-
-```
-bb examples/org-execute.clj            # runs examples/runbook.org
-```
-
-Output:
-
-```
-[pod-babashka-emacs] using emacs: /opt/homebrew/bin/emacs (stderr -> ~/.cache/pod-babashka-emacs/emacs.log)
-Title: Project Roadmap
-
-Outline:
-- Planning
-  - TODO Define scope  ["urgent" "planning"]
-    - DONE Gather requirements
-    - TODO Write one-pager
-  - TODO Pick stack
-- Implementation
-  - TODO Build the pod  ["dev"]
-    - TODO Transport layer
-    - TODO Org reader
-- Done
-  - DONE Initial spike  ["dev"]
-
-Open TODOs: 6
-  - Define scope (scheduled <2026-06-25 Thu>)
-  - Write one-pager
-  - Pick stack
-  - Build the pod (deadline <2026-07-01 Wed>)
-  - Transport layer
-  - Org reader
-
-emacs-version: 31.0.50
-uppercased via elisp: DONE
-```
-
-The first line (and any Emacs warnings) goes to **stderr** — the protocol stream
-on stdout stays clean.
+See the `examples` directory for more. 
 
 ## API reference
 
@@ -324,7 +278,7 @@ bound to `nil`.
 (devops/execute {:file "infra.org" :name "deploy"})
 ```
 
-### Errors
+## Errors
 
 An elisp error becomes a thrown `ex-info` on the babashka side. The Emacs error
 message is the `ex-message`; `ex-data` carries the error symbol and the var:
@@ -337,33 +291,7 @@ message is the `ex-message`; `ex-data` carries the error symbol and the var:
     (ex-data e)))   ;=> {:type "error", :var "pod.babashka.emacs/eval"}
 ```
 
-## How it works
-
-A babashka pod talks to babashka over **stdio** using **bencode** framing.
-The obvious design — "Emacs *is* the pod" — does not work: `emacs --batch` can
-read newline-delimited stdin (`read-string`) but has no way to read babashka's
-raw, newline-free bencode stream byte-for-byte.
-
-So the pod is split in two. A thin babashka **shim** owns the babashka-facing
-stdio and is a dumb, bencode-unaware byte transcoder: it converts the raw
-bencode stream to/from **base64 lines** (ASCII, newline-framed, lossless) for an
-`emacs --batch` **brain** that holds all the protocol logic.
-
-```
-          raw bencode (stdio)            base64 lines (stdio)
-babashka <--------------------> bb shim <--------------------> emacs --batch
-                                (dumb pipe)                    (the brain)
-```
-
-The shim never parses bencode, so it cannot corrupt the protocol — correctness
-lives in one place (the elisp brain), which uses both the elisp `bencode` (wire)
-and `parseedn` (EDN payload) libraries. The Emacs child stays warm across calls.
-
-For the full story and the experiments behind the decision, see
-[`docs/design.md`](docs/design.md) and
-[`docs/adr/0001-transport-architecture.md`](docs/adr/0001-transport-architecture.md).
-
-## Emacs resolution / running without Emacs installed
+## Running without Emacs installed
 
 When the pod starts, the shim resolves an Emacs binary in this order:
 
@@ -375,18 +303,18 @@ When the pod starts, the shim resolves an Emacs binary in this order:
 4. **Download a portable build** for the host os/arch into the cache, then use
    it.
 
-This is what lets the pod work even on a machine without Emacs installed.
+Customize via these environment variables:
 
-| Env var                    | Purpose |
-|----------------------------|---------|
+| Env var                    | Purpose                                                         |
+|----------------------------|-----------------------------------------------------------------|
 | `POD_BABASHKA_EMACS_BIN`   | Force a specific Emacs executable (skips all other resolution). |
-| `POD_BABASHKA_EMACS_URL`   | Override the portable-build download URL for the host os/arch. |
-| `POD_BABASHKA_EMACS_CACHE` | Cache directory for downloaded builds and `emacs.log`. |
-| `BABASHKA_PODS_OS_NAME`    | Babashka's os-name override (used to pick the download). |
-| `BABASHKA_PODS_OS_ARCH`    | Babashka's os-arch override (used to pick the download). |
+| `POD_BABASHKA_EMACS_URL`   | Override the portable-build download URL for the host os/arch.  |
+| `POD_BABASHKA_EMACS_CACHE` | Cache directory for downloaded builds and `emacs.log`.          |
+| `BABASHKA_PODS_OS_NAME`    | Babashka's os-name override (used to pick the download).        |
+| `BABASHKA_PODS_OS_ARCH`    | Babashka's os-arch override (used to pick the download).        |
 
-**Cache directory** defaults to `$POD_BABASHKA_EMACS_CACHE`, else
-`$XDG_CACHE_HOME/pod-babashka-emacs`, else `~/.cache/pod-babashka-emacs`.
+Unless overriden by `$POD_BABASHKA_EMACS_CACHE`, the pod sets the cache directory to
+`$XDG_CACHE_HOME/pod-babashka-emacs` or `~/.cache/pod-babashka-emacs`.
 
 Portable builds currently ship for macOS arm64 and x86_64 (Emacs.app `.dmg`
 builds that bundle their own lisp). On other platforms, install Emacs, set
@@ -395,46 +323,11 @@ archive.
 
 ## Troubleshooting
 
-- **See what Emacs is doing.** The Emacs child's stderr (warnings, errors,
-  messages) is logged to `<cache>/emacs.log` (e.g.
-  `~/.cache/pod-babashka-emacs/emacs.log`). The pod also prints the resolved
-  Emacs path to stderr on startup.
-- **Wrong / multiple Emacs versions.** Set `POD_BABASHKA_EMACS_BIN` to force a
-  specific Emacs and bypass resolution entirely:
-  ```
-  POD_BABASHKA_EMACS_BIN=/opt/homebrew/bin/emacs bb examples/org-outline.clj
-  ```
-- **Calls hang.** Almost always an Emacs that wrote something unexpected to
-  stdout, or a download in progress. Check `emacs.log` and the startup line.
+The Emacs child's stderr (warnings, errors, messages) is logged to `<cache>/emacs.log` (e.g. `~/.cache/pod-babashka-emacs/emacs.log`). 
 
-## Layout
+The pod also prints the resolved emacs path to stderr on startup.
 
-```
-pod-babashka-emacs            # the pod executable (babashka launches this)
-bb.edn                        # babashka project / test task
-src/pod_babashka_emacs/
-  shim.clj                    # bb shim: stdio transcoder + child lifecycle
-  emacs.clj                   # Emacs resolution / portable-build download
-resources/
-  pod-emacs.el                # the elisp brain: pod protocol loop + dispatch
-  pod-emacs-org.el            # org-mode -> EDN (outline / headlines / to-edn / execute)
-  pod-emacs-calc.el           # Calc -> EDN (eval / convert)
-  pod-emacs-project.el        # project.el -> EDN (root / files)
-  pod-emacs-org-roam.el       # org-roam -> EDN (nodes / backlinks)
-  pod-emacs-devops.el         # devops.el -> EDN (tangle / execute)
-  pod-emacs-util.el           # shared elisp helpers (hash-tables, EDN encode)
-vendor/                       # vendored elisp deps (bencode.el, parseclj, parseedn)
-examples/
-  org-outline.clj             # flagship example: read org -> EDN -> analyze
-  org-execute.clj             # run an org file as a runbook of named src blocks
-  sample.org                  # sample org file
-  runbook.org                 # named src blocks driven by org-execute.clj
-docs/
-  design.md                   # full architecture
-  adr/0001-transport-architecture.md
-scripts/run-tests.clj         # test runner (bb test)
-test/                         # clojure.test suite
-```
+If calls hang, it could be that Emacs that wrote something unexpected to stdout, or a download is in progress. Check `emacs.log`.
 
 ## License
 
