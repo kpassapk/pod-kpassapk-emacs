@@ -8,10 +8,6 @@ I got the idea for this project when I was trying out [clime](https://github.com
 It worked, but I wasn't sure I wanted to learn another CLI framework. What if I could use [lambdaisland/cli][lambdaisland] or [babashka/cli][bb-cli] 
 instead?
 
-It a crazy idea. But it may be useful for those of us with a large amount of elisp we have built up over time, and want to use it beyond the editor.
-
-It seems to be stable, but I'm not sure how far this project can go :) File an issue if there is something you need.
-
 [lambdaisland]: https://github.com/lambdaisland/cli
 [bb-cli]: https://github.com/babashka/cli
 
@@ -23,25 +19,33 @@ This project bundles in these excellent elisp libraries:
 - [https://github.com/clojure-emacs/parseclj](parseclj)
 - [https://github.com/skeeto/emacs-bencode](emacs-bencode)
 
-It implements the [https://github.com/babashka/pods#the-protocol](pod protocol) and provides an API for some common emacs packages:
+It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) to expose emacs packages as Clojure namepsaces:
 
-- org mode
-- org roam
+**Built-in:**
+
 - calc
+- org mode
 
-These packages are downloaded with use-package and required when they are used. The idea is to add a large library of emacs packages to this project over time.
+**Third party:**
+
+- [org roam](https://github.com/org-roam/org-roam)
+- [devops.el](https://github.com/kpassapk/devops.el)
+
+Elisp package loading is deferred until required from Clojure. The goal of this project is to develop a large standard library
+of emacs packages, which users can pick a la carte.
+
+The pod downloads third party packages using `use-package` before use:
 
 ```
 (require '[pod.babashka.emacs.org-roam :as roam]) ;; org-roam downloaded and required here
 ```
 
+Adding new packages is easy - see the Adding Libraries" section.
+
 ## Requirements
 
-- **babashka** — to run your scripts and load the pod.
-- **Emacs** — The pod resolves an Emacs binary for the host
-  architecture. If you
-  already have Emacs on your `PATH`, it is used as-is. See
-  [Emacs resolution](#emacs-resolution).
+- **Clojure / babashka** — to run your scripts and load the pod.
+- **Emacs** — the pod tries a few strategies to resolve the emacs binary. See [Emacs resolution](#emacs-resolution).
 
 ## Quickstart
 
@@ -74,7 +78,7 @@ Load the pod by local path and call it:
 ;;             ...]}
 ```
 
-See the `examples` directory for more. 
+See [examples](examples/README.md).
 
 ## Bundled libraries
 
@@ -278,7 +282,7 @@ bound to `nil`.
 ## Adding libraries
 
 To use built-in emacs package from Clojure, add a file to `resources/`, call `pod-emacs-register` with the functions you want
-to expose, and add the deferred named 
+to expose.
 
 For example, let's say we have want to be able to require `pod.babashka.emacs.foo` from Clojure, with elisp functions `foo-func1` 
 and Clojure functions `(foo/func1)`. We would add a file like this to `resources/pod-emacs-foo.el`:
