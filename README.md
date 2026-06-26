@@ -283,18 +283,20 @@ bound to `nil`.
 
 ## Adding libraries
 
-To use built-in emacs package from Clojure, add a file to `resources/`, call `pod-emacs-register` with the functions you want
-to expose.
+To use a built-in emacs package from Clojure, create a pod elisp file in `resources/` which calls `pod-emacs-register`, 
+and add the [named feature](https://www.gnu.org/software/emacs/manual/html_node/elisp/Named-Features.html)  to `pod-emacs--deferred` in `pod-emacs.el`.
 
-For example, let's say we have want to be able to require `pod.babashka.emacs.foo` from Clojure, with elisp functions `foo-func1` 
-and Clojure functions `(foo/func1)`. We would add a file like this to `resources/pod-emacs-foo.el`:
+For example, let's say we have want to be able to require `pod.babashka.emacs.foo` from Clojure, with elisp function `foo-func1` 
+and Clojure function `(foo/func1)`. We would add a file like this to `resources/pod-emacs-foo.el`:
 
 ```
 ;;; Code:
 
 (defun pod-emacs-func1 ()
   (foo-func1))
+
 ... 
+
 (pod-emacs-register
  "pod.babashka.emacs.foo"
  `(("func1"    . ,#'pod-emacs-func1)))
@@ -303,17 +305,17 @@ and Clojure functions `(foo/func1)`. We would add a file like this to `resources
 ;;; pod-emacs-foo.el ends here
 ```
 
-Finally, we would add add the [named feature](https://www.gnu.org/software/emacs/manual/html_node/elisp/Named-Features.html)  to `pod-emacs--deferred`
+Then we would add `pod-emacs-foo` (the provided feature name) it to `pod-emacs-deferred`:
 
 ```
 (defvar pod-emacs--deferred
   ... 
-  ("pod.babashka.emacs.foo" . pod-emacs-foo)
+  ("pod.babashka.emacs.foo" . pod-emacs-foo) ;; add this
 ... 
 ```
 
-If the library is not built into emacs, you can pass in a `use-package` form. When the library is required (in Clojure), 
-the pod will attempt to install it. For example, here we are installing [devops.el](https://github.com/kpassapk/devops.el):
+If the library is _not_ built into emacs, you can pass in a `use-package` form to `pod-emacs-deferred`. When the library is required (in Clojure), 
+the pod will attempt to install it. For example, here we are installing [devops.el](https://github.com/kpassapk/devops.el) from git:
 
 ```
 ("pod.babashka.emacs.devops" .
