@@ -35,23 +35,6 @@
 (require 'pod-emacs-org)
 (require 'pod-emacs-util)
 
-(defmacro pod-emacs-devops--with-file (path &rest body)
-  "Open org file PATH in a temp org-mode buffer and run BODY.
-`default-directory' is set to the file's directory so relative :tangle
-paths resolve as they would when the file is visited."
-  (declare (indent 1))
-  `(let ((p (expand-file-name ,path)))
-     (unless (file-readable-p p)
-       (error "Cannot read org file: %s" p))
-     (with-temp-buffer
-       (insert-file-contents p)
-       (setq default-directory (or (file-name-directory p) default-directory))
-       (let ((org-inhibit-startup t)
-             (org-element-use-cache nil)
-             (org-mode-hook nil))
-         (delay-mode-hooks (org-mode)))
-       ,@body)))
-
 (defun pod-emacs-devops--opt (opts key)
   "Look up KEY in OPTS, which may be a hash-table (from parseedn) or nil."
   (when (hash-table-p opts) (gethash key opts)))
@@ -74,7 +57,7 @@ target-tagged headline in the file."
         (custom-id (pod-emacs-devops--opt opts :custom-id))
         (all       (pod-emacs-devops--opt opts :all)))
     (unless file (error "tangle: missing :file"))
-    (pod-emacs-devops--with-file file
+    (pod-emacs-org--with-file file
       (let ((org-confirm-babel-evaluate nil))
         (pod-emacs-devops--results->edn
          (cond
@@ -82,21 +65,6 @@ target-tagged headline in the file."
           (custom-id (devops-tangle-custom-id (current-buffer) custom-id))
           (heading   (devops-tangle-headline (current-buffer) heading))
           (t (error "tangle: pass :heading, :custom-id or :all"))))))))
-
-(defun pod-emacs-devops-execute (&optional opts)
-  "Execute a source block in an org file against its devops target.
-OPTS is an EDN map (see commentary).  Selects a block with :name or :index;
-with neither, the file must hold exactly one block.  The block's enclosing
-heading target tag resolves to a :dir, injected into the block's babel params
-by `devops''s `org-babel-execute-src-block' advice, so the block runs on its
-remote/local target.  Returns the block's result."
-  (let ((file (pod-emacs-devops--opt opts :file)))
-    (unless file (error "execute: missing :file"))
-    (pod-emacs-devops--with-file file
-      (let ((org-confirm-babel-evaluate nil))
-        (pod-emacs-org--goto-block file opts)
-        (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
-        (org-babel-execute-src-block)))))
 
 (defun pod-emacs-devops--targets->edn (alist)
   "Turn ALIST of (TAG . TARGET) into a vector of {:tag :target} maps."
@@ -110,7 +78,7 @@ OPTS is an EDN map; :file <string> is required.  Returns a vector of
 {:tag :target} -- the same tags `tangle' and `execute' resolve against."
   (let ((file (pod-emacs-devops--opt opts :file)))
     (unless file (error "targets: missing :file"))
-    (pod-emacs-devops--with-file file
+    (pod-emacs-org--with-file file
       (pod-emacs-devops--targets->edn (devops-target-tag-alist)))))
 
 (defun pod-emacs-devops--block-targets (tangle)
@@ -142,7 +110,7 @@ OPTS is an EDN map; :file <string> is required.  Like
                       marking the block local-only."
   (let ((file (pod-emacs-devops--opt opts :file)))
     (unless file (error "src-blocks: missing :file"))
-    (pod-emacs-devops--with-file file
+    (pod-emacs-org--with-file file
       (let ((acc '()) (i 0))
         (org-babel-map-src-blocks nil
           (let* ((info    (org-babel-get-src-block-info t))
@@ -168,7 +136,6 @@ OPTS is an EDN map; :file <string> is required.  Like
 (pod-emacs-register
  "pod.babashka.emacs.devops"
  `(("tangle"     . ,#'pod-emacs-devops-tangle)
-   ("execute"    . ,#'pod-emacs-devops-execute)
    ("targets"    . ,#'pod-emacs-devops-targets)
    ("src-blocks" . ,#'pod-emacs-devops-src-blocks)))
 
