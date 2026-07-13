@@ -1,4 +1,4 @@
-;;; pod-emacs.el --- Emacs Lisp brain for pod-babashka-emacs -*- lexical-binding: t; -*-
+;;; pod-emacs.el --- Emacs Lisp brain for pod-kpassapk-emacs -*- lexical-binding: t; -*-
 
 ;; This runs inside `emacs --batch'.  It is the protocol brain of the pod:
 ;; it speaks the babashka pod protocol (bencode framing, EDN payloads) with a

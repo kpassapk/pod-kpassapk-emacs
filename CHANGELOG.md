@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The pod executable is now a Rust binary** (was a babashka script). The
+  transport is unchanged — a bencode-unaware shim transcoding stdio to/from
+  base64 lines for the `emacs --batch` brain (ADR 0001) — but the shim no
+  longer needs babashka to run, and the elisp sources are embedded in the
+  binary, so a release is a single self-contained file. A repo checkout
+  enclosing the binary (e.g. `target/release/`) still loads `resources/` and
+  `vendor/` directly for development. Build with `cargo build --release`.
+- Emacs resolution no longer advertises a portable-build download: order is
+  `$POD_BABASHKA_EMACS_BIN`, then `emacs` on `PATH`, then well-known
+  locations. New `$POD_BABASHKA_EMACS_ELISP` overrides the elisp directory.
+
 ### Added
+
+- GitHub Actions release workflow: pushing a `v*` tag builds and publishes
+  platform binaries (linux amd64/aarch64 — static musl — and macos
+  amd64/aarch64) with sha256 checksums to a GitHub Release.
 
 - `pod.babashka.emacs/funcall` — call a named elisp function with data arguments
   marshalled from EDN, instead of building elisp source as a string. Pairs with
@@ -46,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2026-06-21
 
-Initial release of `pod-babashka-emacs`, a babashka pod that exposes Emacs to
+Initial release of `pod-kpassapk-emacs`, a babashka pod that exposes Emacs to
 babashka scripts.
 
 ### Added
@@ -82,5 +99,5 @@ babashka scripts.
 - Flagship example (`examples/org-outline.clj` + `examples/sample.org`) and a
   `clojure.test` suite (`bb test`).
 
-[Unreleased]: https://github.com/kpassapk/pod-babashka-emacs/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/kpassapk/pod-babashka-emacs/releases/tag/v0.1.0
+[Unreleased]: https://github.com/kpassapk/pod-kpassapk-emacs/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/kpassapk/pod-kpassapk-emacs/releases/tag/v0.1.0

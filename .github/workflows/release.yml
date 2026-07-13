@@ -1,0 +1,73 @@
+name: release
+
+# Tag a commit `v*` (e.g. v0.2.0) to build platform binaries and attach them
+# to a GitHub Release. The elisp brain is embedded in the binary, so each zip
+# is a single self-contained executable (it still needs an Emacs on the host).
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            artifact: linux-amd64
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            artifact: linux-aarch64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: macos-amd64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: macos-aarch64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install musl toolchain
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          zip="pod-kpassapk-emacs-${version}-${{ matrix.artifact }}.zip"
+          (cd "target/${{ matrix.target }}/release" && zip "$GITHUB_WORKSPACE/$zip" pod-kpassapk-emacs)
+          shasum -a 256 "$zip" > "$zip.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            *.zip
+            *.zip.sha256
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.zip
+            *.zip.sha256
+          generate_release_notes: true

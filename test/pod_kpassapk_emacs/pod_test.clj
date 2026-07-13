@@ -1,5 +1,5 @@
-(ns pod-babashka-emacs.pod-test
-  "End-to-end tests for the pod-babashka-emacs pod.
+(ns pod-kpassapk-emacs.pod-test
+  "End-to-end tests for the pod-kpassapk-emacs pod.
 
   These load the actual pod executable once (which spawns an `emacs --batch'
   child), then exercise the EDN-returning API surface and assert on real
@@ -19,7 +19,10 @@
       .getParentFile))          ; repo root
 
 (def pod-path
-  (.getPath (io/file repo-root "pod-babashka-emacs")))
+  "The pod binary under test: $POD_KPASSAPK_EMACS_POD if set, else the release
+  build (bb test builds it first)."
+  (or (System/getenv "POD_KPASSAPK_EMACS_POD")
+      (.getPath (io/file repo-root "target" "release" "pod-kpassapk-emacs"))))
 
 (def sample-org
   (.getPath (io/file repo-root "examples" "sample.org")))

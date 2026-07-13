@@ -1,4 +1,4 @@
-;;; pod-emacs-project.el --- project.el -> EDN for pod-babashka-emacs -*- lexical-binding: t; -*-
+;;; pod-emacs-project.el --- project.el -> EDN for pod-kpassapk-emacs -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; Bridge Emacs' built-in `project' library into the pod.  A babashka driver
 ;; points it at a directory and gets the project's root and tracked-file list

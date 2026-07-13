@@ -1,6 +1,9 @@
 # ADR 0001 — Transport architecture: bb shim + Emacs brain over base64 lines
 
-Status: Accepted (2026-06-21)
+Status: Accepted (2026-06-21). Amended (2026-07-13): the shim is now a Rust
+binary (`src/main.rs`) rather than a babashka script — same transport, same
+division of labor; the elisp sources are embedded in the binary so releases
+are a single file.
 
 ## Context
 

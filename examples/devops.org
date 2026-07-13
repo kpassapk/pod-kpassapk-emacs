@@ -1,5 +1,12 @@
 #+TITLE: A devops.el runbook
+#+TARGET: ..                 (project)
 #+TARGET: /ssh:example1.com: (example1)
+
+* Local example                                                     :project:
+
+#+begin_src sh
+  pwd
+#+end_src
 
 * Upload a file                                                    :example1:
 :PROPERTIES:
@@ -14,10 +21,15 @@ From bb: =(devops/tangle {:file org-file :custom-id "upload-file"})=
 foo: bar
 #+end_src
 
+#+begin_src sh
+  ls
+#+end_src
+
 * Check disk space                                                :example1:
 
-From bb: =(devops/execute {:file org-file :name "disk-free"})=
-Runs on the heading's target (example1), not locally.
+From emacs: execute code block as usual
+From bb: select this block in =devops.bb= and press Enter.
+Runs on the heading's target (example1) over ssh, not locally.
 
 #+name: disk-free
 #+begin_src sh :results output

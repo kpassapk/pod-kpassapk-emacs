@@ -1,4 +1,4 @@
-# pod-babashka-emacs — Design
+# pod-kpassapk-emacs — Design
 
 ## Goal
 
@@ -33,24 +33,26 @@ babashka writes bencode with **no newlines** (verified: the describe message on
 the wire is `d2:id36:...22:op8:describee`). So a line reader deadlocks on the
 real stream. Emacs `--batch` has no "read exactly N raw bytes" primitive.
 
-## Architecture: thin bb shim + Emacs brain
+## Architecture: thin shim + Emacs brain
 
 ```
-            raw bencode (stdio)            base64 lines (stdio)
-  babashka <--------------------> bb shim <--------------------> emacs --batch
-                                  (dumb pipe)                    (the brain)
+            raw bencode (stdio)              base64 lines (stdio)
+  babashka <--------------------> Rust shim <--------------------> emacs --batch
+                                  (dumb pipe)                      (the brain)
 ```
 
-- **bb shim** (`pod-babashka-emacs`, the pod executable). Owns the
-  babashka-facing stdio. It is a *dumb, bencode-unaware* byte transcoder:
+- **Rust shim** (`src/main.rs`, built to the `pod-kpassapk-emacs` pod
+  executable; originally a babashka script). Owns the babashka-facing stdio.
+  It is a *dumb, bencode-unaware* byte transcoder:
   - babashka→emacs: read available raw bytes, base64-encode the chunk, write it
     as one newline-terminated line to the Emacs child's stdin.
   - emacs→babashka: read a base64 line from the Emacs child's stdout,
     base64-decode it, write the raw bytes to babashka.
   base64 is pure ASCII and newline-free, so it is safe to feed Emacs'
   line-oriented `read-string`, and it carries arbitrary binary bencode losslessly.
-  The shim also resolves/downloads the Emacs binary and manages the child's
-  lifecycle.
+  The shim also resolves the Emacs binary, materializes the embedded elisp
+  sources (a repo checkout enclosing the binary is used directly instead), and
+  manages the child's lifecycle.
 
 - **Emacs `--batch` child** (`resources/pod-emacs.el`). The actual pod logic:
   1. Read a base64 line (`read-string`), decode to raw bytes, append to an
@@ -84,7 +86,7 @@ keyword, t→true, nil→nil, non-serializable (buffers, functions) → string r
 
 Resolution order in the shim:
 1. `POD_BABASHKA_EMACS_BIN` env override.
-2. Cached download under `$XDG_CACHE_HOME/pod-babashka-emacs/`.
+2. Cached download under `$XDG_CACHE_HOME/pod-kpassapk-emacs/`.
 3. System `emacs` on `PATH`.
 4. Download a portable Emacs for the host os/arch into the cache, then use it.
 

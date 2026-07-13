@@ -1,4 +1,4 @@
-;;; pod-emacs-org.el --- org-mode -> EDN for pod-babashka-emacs -*- lexical-binding: t; -*-
+;;; pod-emacs-org.el --- org-mode -> EDN for pod-kpassapk-emacs -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; The flagship feature: read an org file *through Emacs' real org-mode* and
 ;; return its structure as EDN.  A babashka driver can then work with the

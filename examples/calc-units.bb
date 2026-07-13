@@ -17,7 +17,7 @@
         '[org.jline.utils NonBlockingReader])
 
 (def here (-> *file* io/file .getCanonicalFile .getParentFile))
-(def pod  (.getPath (io/file here ".." "pod-babashka-emacs")))
+(def pod  (.getPath (io/file here ".." "target" "release" "pod-kpassapk-emacs")))
 
 (pods/load-pod [pod])
 (require '[pod.babashka.emacs.calc :as calc])
