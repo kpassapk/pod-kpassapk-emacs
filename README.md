@@ -1,4 +1,4 @@
-# Babashka Emacs Pod
+# pod-kpassapk-emacs
 
 ![Status](https://img.shields.io/badge/status-alpha-blue)
 [![bb compatible](https://raw.githubusercontent.com/babashka/babashka/master/logo/badge.svg)](https://book.babashka.org#badges)
@@ -27,6 +27,7 @@ It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) 
 **Built-in:**
 
 - calc
+- project.el
 - org mode
 
 **Third party:**
@@ -44,15 +45,14 @@ The pod defers loading of elisp packages until they are required from Clojure.
 
 Since loading is deferred, this repository can provide a large library of emacs packages, which users can pick _a la carte_.
 
-See the [Adding Libraries](#adding-libraries) section.
+See the [Adding Libraries](#adding-libraries) section if you want to add a new elisp library. Pull requests welcome.
 
 ## Requirements
 
 - **Clojure / babashka** — to run your scripts and load the pod.
 - **Emacs** — the pod tries a few strategies to resolve the emacs binary. See [Emacs resolution](#emacs-resolution).
 
-The pod executable itself is a self-contained Rust binary (the elisp brain is
-embedded in it). Grab a platform build from the
+The pod executable itself is a self-contained Rust binary. Grab a platform build from the
 [releases page](https://github.com/kpassapk/pod-kpassapk-emacs/releases), or
 build from source with [Rust](https://rustup.rs):
 
