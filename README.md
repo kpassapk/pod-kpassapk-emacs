@@ -51,13 +51,22 @@ See the [Adding Libraries](#adding-libraries) section.
 - **Clojure / babashka** — to run your scripts and load the pod.
 - **Emacs** — the pod tries a few strategies to resolve the emacs binary. See [Emacs resolution](#emacs-resolution).
 
+The pod executable itself is a self-contained Rust binary (the elisp brain is
+embedded in it). Grab a platform build from the
+[releases page](https://github.com/kpassapk/pod-kpassapk-emacs/releases), or
+build from source with [Rust](https://rustup.rs):
+
+```
+cargo build --release   # -> target/release/pod-kpassapk-emacs
+```
+
 ## Quickstart
 
 Load the pod by local path and call it:
 
 ```clojure
 (require '[babashka.pods :as pods])
-(pods/load-pod ["./pod-babashka-emacs"])
+(pods/load-pod ["target/release/pod-kpassapk-emacs"])
 
 (require '[pod.babashka.emacs :as emacs]
          '[pod.babashka.emacs.org :as org])
@@ -147,26 +156,29 @@ message is the `ex-message`; `ex-data` carries the error symbol and the var:
 When the pod starts, the shim resolves an Emacs binary in this order:
 
 1. **`$POD_BABASHKA_EMACS_BIN`** — explicit override; used as-is.
-2. **Cached download** — a portable build previously downloaded by the pod
-   (under the cache dir).
-3. **System `emacs`** on `PATH` (on macOS it also checks
-   `/Applications/Emacs.app/Contents/MacOS/Emacs`).
+2. **System `emacs`** on `PATH` (on macOS it also checks
+   `/Applications/Emacs.app/Contents/MacOS/Emacs`; on Linux, well-known
+   locations like `/usr/bin/emacs` and `/snap/bin/emacs`).
 
 Customize via these environment variables:
 
-| Env var                    | Purpose                                                         |
-|----------------------------|-----------------------------------------------------------------|
-| `POD_BABASHKA_EMACS_BIN`   | Force a specific Emacs executable (skips all other resolution). |
-| `POD_BABASHKA_EMACS_CACHE` | Cache directory for downloaded builds and `emacs.log`.          |
-| `BABASHKA_PODS_OS_NAME`    | Babashka's os-name override (used to pick the download).        |
-| `BABASHKA_PODS_OS_ARCH`    | Babashka's os-arch override (used to pick the download).        |
+| Env var                    | Purpose                                                              |
+|----------------------------|----------------------------------------------------------------------|
+| `POD_BABASHKA_EMACS_BIN`   | Force a specific Emacs executable (skips all other resolution).      |
+| `POD_BABASHKA_EMACS_CACHE` | Cache directory for extracted elisp and `emacs.log`.                 |
+| `POD_BABASHKA_EMACS_ELISP` | Load elisp from this directory (expects `resources/` and `vendor/`). |
 
 Unless overriden by `$POD_BABASHKA_EMACS_CACHE`, the pod sets the cache directory to
-`$XDG_CACHE_HOME/pod-babashka-emacs` or `~/.cache/pod-babashka-emacs`.
+`$XDG_CACHE_HOME/pod-kpassapk-emacs` or `~/.cache/pod-kpassapk-emacs`.
+
+The elisp sources are compiled into the binary and extracted to the cache dir
+on first run. When the binary sits inside a repo checkout (e.g.
+`target/release/`), the checkout's `resources/` and `vendor/` are used
+directly, so elisp edits take effect without rebuilding.
 
 ## Troubleshooting
 
-The Emacs child's stderr (warnings, errors, messages) is logged to `<cache>/emacs.log` (e.g. `~/.cache/pod-babashka-emacs/emacs.log`). 
+The Emacs child's stderr (warnings, errors, messages) is logged to `<cache>/emacs.log` (e.g. `~/.cache/pod-kpassapk-emacs/emacs.log`). 
 
 The pod also prints the resolved emacs path to stderr on startup.
 

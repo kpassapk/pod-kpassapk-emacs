@@ -1,4 +1,4 @@
-;;; pod-emacs-util.el --- shared helpers for pod-babashka-emacs -*- lexical-binding: t; -*-
+;;; pod-emacs-util.el --- shared helpers for pod-kpassapk-emacs -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; Small helpers shared by the protocol brain (pod-emacs) and feature modules
 ;; (pod-emacs-org).  Kept separate to avoid a circular require.

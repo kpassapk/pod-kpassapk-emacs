@@ -20,5 +20,8 @@ jobs:
         with:
           bb: latest
 
+      - uses: Swatinem/rust-cache@v2
+
       - name: Run tests
+        # bb test builds the pod binary (cargo build --release) first.
         run: bb test

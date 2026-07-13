@@ -9,7 +9,7 @@
 (require '[portal.api :as p])
 
 (def here (-> *file* io/file .getCanonicalFile .getParentFile))
-(def pod  (.getPath (io/file here ".." "pod-babashka-emacs")))
+(def pod  (.getPath (io/file here ".." "target" "release" "pod-kpassapk-emacs")))
 (def org-file (or (first *command-line-args*)
                   (.getPath (io/file here "sample.org"))))
 

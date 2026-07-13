@@ -1,3 +1,5 @@
-{:paths ["src" "resources"]
- :tasks {test {:doc  "Run the pod test suite (loads the pod, runs clojure.test)."
-               :task (shell "bb scripts/run-tests.clj")}}}
+{:tasks {build {:doc  "Build the pod binary (target/release/pod-kpassapk-emacs)."
+                :task (shell "cargo build --release")}
+         test  {:doc     "Run the pod test suite (builds the pod, loads it, runs clojure.test)."
+                :depends [build]
+                :task    (shell "bb scripts/run-tests.clj")}}}

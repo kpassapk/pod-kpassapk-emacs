@@ -1,4 +1,4 @@
-;;; pod-emacs-org-roam.el --- org-roam -> EDN for pod-babashka-emacs -*- lexical-binding: t; -*-
+;;; pod-emacs-org-roam.el --- org-roam -> EDN for pod-kpassapk-emacs -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; Bridge the `org-roam' knowledge-graph package into the pod, so a babashka
 ;; driver can read a Zettelkasten as Clojure data: the nodes in a roam

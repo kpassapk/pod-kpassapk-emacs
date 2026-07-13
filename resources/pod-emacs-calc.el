@@ -1,4 +1,4 @@
-;;; pod-emacs-calc.el --- Emacs Calc -> EDN for pod-babashka-emacs -*- lexical-binding: t; -*-
+;;; pod-emacs-calc.el --- Emacs Calc -> EDN for pod-kpassapk-emacs -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; Bridge Emacs' built-in `calc' engine into the pod, so a babashka driver can
 ;; hand off arbitrary-precision arithmetic, fractions, units and symbolic

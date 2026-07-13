@@ -1,5 +1,7 @@
 *.elc
+/target/
 /.cpcache/
+.babashka-pod-*.port
 /.clj-kondo/
 .DS_Store
 *.log
