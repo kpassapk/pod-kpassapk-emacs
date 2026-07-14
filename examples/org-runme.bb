@@ -21,7 +21,7 @@
                   (.getPath (io/file here "runbook.org"))))
 
 (pods/load-pod [pod])
-(require '[pod.babashka.emacs.org :as org])
+(require '[pod.kpassapk.emacs.org :as org])
 
 (defn block-label [b]
   (or (:name b) (format "«block %d»" (:index b))))

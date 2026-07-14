@@ -25,6 +25,6 @@
 (def pod  (.getPath (io/file here ".." "target" "release" "pod-kpassapk-emacs")))
 
 (pods/load-pod [pod])
-(require '[pod.babashka.emacs :as emacs])
+(require '[pod.kpassapk.emacs :as emacs])
 
 (prn (emacs/eval "(+ 1 1)"))

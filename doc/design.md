@@ -72,10 +72,10 @@ the protocol brain in elisp, where org-mode lives.
 
 ## Pod surface (namespaces / vars)
 
-- `pod.babashka.emacs/eval` — eval an elisp string, return result as EDN.
-- `pod.babashka.emacs/eval-file` — load an `.el` file in the Emacs process.
-- `pod.babashka.emacs/version` — Emacs version info.
-- `pod.babashka.emacs.org/outline` — read an org file, return its outline as EDN
+- `pod.kpassapk.emacs/eval` — eval an elisp string, return result as EDN.
+- `pod.kpassapk.emacs/eval-file` — load an `.el` file in the Emacs process.
+- `pod.kpassapk.emacs/version` — Emacs version info.
+- `pod.kpassapk.emacs.org/outline` — read an org file, return its outline as EDN
   (nested headlines: `:level :title :todo :tags :properties :children`).
 
 `format` is `edn`. elisp→EDN mapping (via parseedn, with a thin wrapper for
@@ -85,7 +85,7 @@ keyword, t→true, nil→nil, non-serializable (buffers, functions) → string r
 ## Bundling Emacs ("works without Emacs installed")
 
 Resolution order in the shim:
-1. `POD_BABASHKA_EMACS_BIN` env override.
+1. `POD_KPASSAPK_EMACS_BIN` env override.
 2. Cached download under `$XDG_CACHE_HOME/pod-kpassapk-emacs/`.
 3. System `emacs` on `PATH`.
 4. Download a portable Emacs for the host os/arch into the cache, then use it.

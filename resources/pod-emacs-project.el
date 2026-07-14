@@ -4,8 +4,8 @@
 ;; points it at a directory and gets the project's root and tracked-file list
 ;; back as data, using the same VC-aware detection Emacs uses interactively.
 ;;
-;;   pod.babashka.emacs.project/root   (PATH)                -> root dir string
-;;   pod.babashka.emacs.project/files  (PATH &optional OPTS) -> vector of paths
+;;   pod.kpassapk.emacs.project/root   (PATH)                -> root dir string
+;;   pod.kpassapk.emacs.project/files  (PATH &optional OPTS) -> vector of paths
 ;;
 ;; PATH is any path inside the project (a file or directory).  Detection uses
 ;; `project-current', whose default backend walks up to the enclosing VC root,
@@ -50,7 +50,7 @@ otherwise they are absolute."
 ;;;; ----------------------------------------------------------- registration
 
 (pod-emacs-register
- "pod.babashka.emacs.project"
+ "pod.kpassapk.emacs.project"
  `(("root"  . ,#'pod-emacs-project-root)
    ("files" . ,#'pod-emacs-project-files)))
 

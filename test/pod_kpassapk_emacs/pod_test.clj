@@ -32,29 +32,29 @@
 (defonce loaded
   (do
     (pods/load-pod [pod-path])
-    (require '[pod.babashka.emacs :as emacs])
-    (require '[pod.babashka.emacs.org :as org])
+    (require '[pod.kpassapk.emacs :as emacs])
+    (require '[pod.kpassapk.emacs.org :as org])
     true))
 
 (use-fixtures :once (fn [t] (assert loaded) (t)))
 
 ;; Resolve the pod-provided fns at call time so the namespace compiles before
 ;; the pod is loaded.
-(defn- ev [code]      ((resolve 'pod.babashka.emacs/eval) code))
-(defn- funcall [& as] (apply (resolve 'pod.babashka.emacs/funcall) as))
-(defn- version []     ((resolve 'pod.babashka.emacs/version)))
+(defn- ev [code]      ((resolve 'pod.kpassapk.emacs/eval) code))
+(defn- funcall [& as] (apply (resolve 'pod.kpassapk.emacs/funcall) as))
+(defn- version []     ((resolve 'pod.kpassapk.emacs/version)))
 (defn- outline
-  ([path]      ((resolve 'pod.babashka.emacs.org/outline) path))
-  ([path opts] ((resolve 'pod.babashka.emacs.org/outline) path opts)))
+  ([path]      ((resolve 'pod.kpassapk.emacs.org/outline) path))
+  ([path opts] ((resolve 'pod.kpassapk.emacs.org/outline) path opts)))
 (defn- headlines
-  ([path opts] ((resolve 'pod.babashka.emacs.org/headlines) path opts)))
+  ([path opts] ((resolve 'pod.kpassapk.emacs.org/headlines) path opts)))
 (defn- to-edn
-  ([path]      ((resolve 'pod.babashka.emacs.org/to-edn) path)))
+  ([path]      ((resolve 'pod.kpassapk.emacs.org/to-edn) path)))
 (defn- execute
-  ([path]      ((resolve 'pod.babashka.emacs.org/execute) path))
-  ([path opts] ((resolve 'pod.babashka.emacs.org/execute) path opts)))
+  ([path]      ((resolve 'pod.kpassapk.emacs.org/execute) path))
+  ([path opts] ((resolve 'pod.kpassapk.emacs.org/execute) path opts)))
 (defn- src-blocks
-  ([path]      ((resolve 'pod.babashka.emacs.org/src-blocks) path)))
+  ([path]      ((resolve 'pod.kpassapk.emacs.org/src-blocks) path)))
 
 ;;;; ------------------------------------------------------------- helpers
 
@@ -83,18 +83,18 @@
 
 (deftest org-deferred-load-test
   (testing "org is a deferred namespace: it loads via load-ns on first require"
-    ;; The `loaded' defonce already did (require 'pod.babashka.emacs.org). org is
+    ;; The `loaded' defonce already did (require 'pod.kpassapk.emacs.org). org is
     ;; advertised in describe as deferred (no vars), so that require triggered a
     ;; `load-ns' op which `require'd pod-emacs-org.el in the child and returned
     ;; its vars. If load-ns were broken the require — and the whole suite — would
     ;; have thrown. Here we just confirm the vars resolved and invoke cleanly.
-    (is (some? (resolve 'pod.babashka.emacs.org/execute))
+    (is (some? (resolve 'pod.kpassapk.emacs.org/execute))
         "deferred org vars are present after require")
     (is (= "hello" (execute sample-org {:index 0}))
         "an org var invokes correctly through the deferred-loaded namespace"))
 
   (testing "a second require of the deferred namespace is idempotent"
-    (require '[pod.babashka.emacs.org :as org] :reload)
+    (require '[pod.kpassapk.emacs.org :as org] :reload)
     (is (= 2 (count (vec (src-blocks sample-org)))))))
 
 ;;;; ------------------------------------------------------------- eval
@@ -148,6 +148,16 @@
       (is (string? s))
       (is (= 50000 (count s)))
       (is (= (apply str (repeat 50000 \x)) s)))))
+
+(deftest eval-stdout-guard-test
+  (testing "user elisp writing to stdout does not corrupt the protocol"
+    ;; stdout is the protocol channel; `standard-output' is rebound to stderr
+    ;; in pod-emacs-main so princ/print/pp can't break the base64 framing.
+    (is (= 42 (ev "(princ \"BOOM\") 42")))
+    (is (= 7 (ev "(print 99) 7"))))
+
+  (testing "the session survives calls that wrote to standard-output"
+    (is (= 4 (ev "(+ 2 2)")))))
 
 (deftest eval-error-test
   (testing "arithmetic error throws with an Arith* message"

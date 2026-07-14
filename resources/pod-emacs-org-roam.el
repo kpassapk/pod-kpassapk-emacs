@@ -4,8 +4,8 @@
 ;; driver can read a Zettelkasten as Clojure data: the nodes in a roam
 ;; directory and the backlinks pointing at any one of them.
 ;;
-;;   pod.babashka.emacs.org-roam/nodes      (&optional OPTS) -> vector of nodes
-;;   pod.babashka.emacs.org-roam/backlinks  (OPTS)           -> vector of links
+;;   pod.kpassapk.emacs.org-roam/nodes      (&optional OPTS) -> vector of nodes
+;;   pod.kpassapk.emacs.org-roam/backlinks  (OPTS)           -> vector of links
 ;;
 ;; OPTS is an EDN map.  Both vars accept:
 ;;   :directory  <string>  the org-roam directory to read (defaults to the
@@ -77,7 +77,7 @@ element is {:source-id :source-title :point} for one referencing location."
 ;;;; ----------------------------------------------------------- registration
 
 (pod-emacs-register
- "pod.babashka.emacs.org-roam"
+ "pod.kpassapk.emacs.org-roam"
  `(("nodes"     . ,#'pod-emacs-org-roam-nodes)
    ("backlinks" . ,#'pod-emacs-org-roam-backlinks)))
 

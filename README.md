@@ -40,7 +40,7 @@ It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) 
 The pod defers loading of elisp packages until they are required from Clojure. 
 
 ```
-(require '[pod.babashka.emacs.org-roam :as roam]) ;; org-roam downloaded (if necessary) and required here
+(require '[pod.kpassapk.emacs.org-roam :as roam]) ;; org-roam downloaded (if necessary) and required here
 ```
 
 Since loading is deferred, this repository can provide a large library of emacs packages, which users can pick _a la carte_.
@@ -68,8 +68,8 @@ Load the pod by local path and call it:
 (require '[babashka.pods :as pods])
 (pods/load-pod ["target/release/pod-kpassapk-emacs"])
 
-(require '[pod.babashka.emacs :as emacs]
-         '[pod.babashka.emacs.org :as org])
+(require '[pod.kpassapk.emacs :as emacs]
+         '[pod.kpassapk.emacs.org :as org])
 
 ;; Evaluate Emacs Lisp, get EDN back:
 (emacs/eval "(+ 1 2)")            ;=> 3
@@ -100,7 +100,7 @@ See [doc/packages.md](doc/packages.md) for a list of available packages.
 To use a built-in emacs package from Clojure, create a pod elisp file in `resources/` which calls `pod-emacs-register`, 
 and add the [named feature](https://www.gnu.org/software/emacs/manual/html_node/elisp/Named-Features.html)  to `pod-emacs--deferred` in `pod-emacs.el`.
 
-For example, let's say we have want to be able to require `pod.babashka.emacs.foo` from Clojure, with elisp function `foo-func1` 
+For example, let's say we have want to be able to require `pod.kpassapk.emacs.foo` from Clojure, with elisp function `foo-func1` 
 and Clojure function `(foo/func1)`. We would add a file like this to `resources/pod-emacs-foo.el`:
 
 ```
@@ -112,7 +112,7 @@ and Clojure function `(foo/func1)`. We would add a file like this to `resources/
 ... 
 
 (pod-emacs-register
- "pod.babashka.emacs.foo"
+ "pod.kpassapk.emacs.foo"
  `(("func1"    . ,#'pod-emacs-func1)))
  
 (provide 'pod-emacs-foo)
@@ -124,7 +124,7 @@ Then we would add `pod-emacs-foo` (the provided feature name) it to `pod-emacs-d
 ```
 (defvar pod-emacs--deferred
   ... 
-  ("pod.babashka.emacs.foo" . pod-emacs-foo) ;; add this
+  ("pod.kpassapk.emacs.foo" . pod-emacs-foo) ;; add this
 ... 
 ```
 
@@ -132,7 +132,7 @@ If the library is _not_ built into emacs, you can pass in a `use-package` form t
 the pod will attempt to install it. For example, here we are installing [devops.el](https://github.com/kpassapk/devops.el) from git:
 
 ```
-("pod.babashka.emacs.devops" .
+("pod.kpassapk.emacs.devops" .
      (pod-emacs-devops . (:use-package devops
 				       :ensure t
 				       :vc (:url "https://github.com/kpassapk/devops.el"))))
@@ -148,14 +148,14 @@ message is the `ex-message`; `ex-data` carries the error symbol and the var:
   (emacs/eval "(error \"boom\")")
   (catch clojure.lang.ExceptionInfo e
     (ex-message e)  ;=> "boom"
-    (ex-data e)))   ;=> {:type "error", :var "pod.babashka.emacs/eval"}
+    (ex-data e)))   ;=> {:type "error", :var "pod.kpassapk.emacs/eval"}
 ```
 
 ## Emacs resolution
 
 When the pod starts, the shim resolves an Emacs binary in this order:
 
-1. **`$POD_BABASHKA_EMACS_BIN`** — explicit override; used as-is.
+1. **`$POD_KPASSAPK_EMACS_BIN`** — explicit override; used as-is.
 2. **System `emacs`** on `PATH` (on macOS it also checks
    `/Applications/Emacs.app/Contents/MacOS/Emacs`; on Linux, well-known
    locations like `/usr/bin/emacs` and `/snap/bin/emacs`).
@@ -164,11 +164,11 @@ Customize via these environment variables:
 
 | Env var                    | Purpose                                                              |
 |----------------------------|----------------------------------------------------------------------|
-| `POD_BABASHKA_EMACS_BIN`   | Force a specific Emacs executable (skips all other resolution).      |
-| `POD_BABASHKA_EMACS_CACHE` | Cache directory for extracted elisp and `emacs.log`.                 |
-| `POD_BABASHKA_EMACS_ELISP` | Load elisp from this directory (expects `resources/` and `vendor/`). |
+| `POD_KPASSAPK_EMACS_BIN`   | Force a specific Emacs executable (skips all other resolution).      |
+| `POD_KPASSAPK_EMACS_CACHE` | Cache directory for extracted elisp and `emacs.log`.                 |
+| `POD_KPASSAPK_EMACS_ELISP` | Load elisp from this directory (expects `resources/` and `vendor/`). |
 
-Unless overriden by `$POD_BABASHKA_EMACS_CACHE`, the pod sets the cache directory to
+Unless overriden by `$POD_KPASSAPK_EMACS_CACHE`, the pod sets the cache directory to
 `$XDG_CACHE_HOME/pod-kpassapk-emacs` or `~/.cache/pod-kpassapk-emacs`.
 
 The elisp sources are compiled into the binary and extracted to the cache dir
