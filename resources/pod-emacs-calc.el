@@ -4,8 +4,8 @@
 ;; hand off arbitrary-precision arithmetic, fractions, units and symbolic
 ;; algebra to Emacs and get the formatted result back as a string.
 ;;
-;;   pod.babashka.emacs.calc/eval     (EXPR)        -> result string
-;;   pod.babashka.emacs.calc/convert  (EXPR UNITS)  -> result string
+;;   pod.kpassapk.emacs.calc/eval     (EXPR)        -> result string
+;;   pod.kpassapk.emacs.calc/convert  (EXPR UNITS)  -> result string
 ;;
 ;; EXPR is a Calc algebraic expression string (e.g. "2^100", "sqrt(2)",
 ;; "deg(pi/4)", "evalv(pi)").  `eval' returns Calc's formatted result; `convert'
@@ -59,7 +59,7 @@ signals."
 ;;;; ----------------------------------------------------------- registration
 
 (pod-emacs-register
- "pod.babashka.emacs.calc"
+ "pod.kpassapk.emacs.calc"
  `(("eval"    . ,#'pod-emacs-calc-eval)
    ("convert" . ,#'pod-emacs-calc-convert)))
 

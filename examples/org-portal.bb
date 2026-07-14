@@ -14,7 +14,7 @@
                   (.getPath (io/file here "sample.org"))))
 
 (pods/load-pod [pod])
-(require '[pod.babashka.emacs.org :as org])
+(require '[pod.kpassapk.emacs.org :as org])
 
 (def p (p/open))
 (add-tap #'p/submit)

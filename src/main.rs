@@ -24,7 +24,7 @@ pub fn die(msg: &str) -> ! {
 }
 
 pub fn cache_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("POD_BABASHKA_EMACS_CACHE") {
+    if let Some(dir) = std::env::var_os("POD_KPASSAPK_EMACS_CACHE") {
         return PathBuf::from(dir);
     }
     if let Some(xdg) = std::env::var_os("XDG_CACHE_HOME") {
@@ -32,7 +32,7 @@ pub fn cache_dir() -> PathBuf {
     }
     match std::env::var_os("HOME") {
         Some(home) => PathBuf::from(home).join(".cache/pod-kpassapk-emacs"),
-        None => die("cannot locate a cache dir: none of POD_BABASHKA_EMACS_CACHE, XDG_CACHE_HOME, HOME are set"),
+        None => die("cannot locate a cache dir: none of POD_KPASSAPK_EMACS_CACHE, XDG_CACHE_HOME, HOME are set"),
     }
 }
 
@@ -78,7 +78,7 @@ fn fallback_paths() -> Vec<PathBuf> {
 }
 
 fn resolve_emacs() -> Option<PathBuf> {
-    if let Some(bin) = std::env::var_os("POD_BABASHKA_EMACS_BIN") {
+    if let Some(bin) = std::env::var_os("POD_KPASSAPK_EMACS_BIN") {
         return Some(PathBuf::from(bin));
     }
     which("emacs").or_else(|| fallback_paths().into_iter().find(|p| is_executable(p)))
@@ -155,7 +155,7 @@ fn main() {
 
     let root = elisp::elisp_root(&cache);
     let emacs = resolve_emacs()
-        .unwrap_or_else(|| die("no emacs found: set POD_BABASHKA_EMACS_BIN or put emacs on PATH"));
+        .unwrap_or_else(|| die("no emacs found: set POD_KPASSAPK_EMACS_BIN or put emacs on PATH"));
     log(&format!("emacs: {}", emacs.display()));
 
     let logfile = cache.join("emacs.log");

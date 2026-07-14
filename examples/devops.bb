@@ -33,7 +33,7 @@
          '[clojuressh.channel-exec :as channel-exec]
          '[clojuressh.session :as session])
 
-(require '[pod.babashka.emacs.devops :as devops])
+(require '[pod.kpassapk.emacs.devops :as devops])
 
 ;;;; -------------------------------------------------------------- running
 

@@ -4,9 +4,9 @@
 ;; return its structure as EDN.  A babashka driver can then work with the
 ;; outline as ordinary Clojure data.
 ;;
-;;   pod.babashka.emacs.org/outline    -> nested headline tree
-;;   pod.babashka.emacs.org/headlines  -> flat headline list (document order)
-;;   pod.babashka.emacs.org/to-edn     -> nested tree incl. each entry's body
+;;   pod.kpassapk.emacs.org/outline    -> nested headline tree
+;;   pod.kpassapk.emacs.org/headlines  -> flat headline list (document order)
+;;   pod.kpassapk.emacs.org/to-edn     -> nested tree incl. each entry's body
 ;;
 ;; All three accept (PATH &optional OPTS).  OPTS is an EDN map; recognized keys:
 ;;   :max-level  <int>   only include headlines at or above this depth
@@ -246,7 +246,7 @@ otherwise signal an error so the caller disambiguates."
 ;;;; ----------------------------------------------------------- registration
 
 (pod-emacs-register
- "pod.babashka.emacs.org"
+ "pod.kpassapk.emacs.org"
  `(("outline"    . ,#'pod-emacs-org-outline)
    ("headlines"  . ,#'pod-emacs-org-headlines)
    ("to-edn"     . ,#'pod-emacs-org-to-edn)

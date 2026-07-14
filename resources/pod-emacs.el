@@ -53,14 +53,14 @@ NS-NAME is the fully-qualified namespace string; VARS is an alist of
 \(VAR-NAME . HANDLER), where HANDLER is applied to the invoke args.")
 
 (defvar pod-emacs--deferred
-  '(("pod.babashka.emacs.org" . pod-emacs-org)
-    ("pod.babashka.emacs.calc" . pod-emacs-calc)
-    ("pod.babashka.emacs.project" . pod-emacs-project)
-    ("pod.babashka.emacs.devops" .
+  '(("pod.kpassapk.emacs.org" . pod-emacs-org)
+    ("pod.kpassapk.emacs.calc" . pod-emacs-calc)
+    ("pod.kpassapk.emacs.project" . pod-emacs-project)
+    ("pod.kpassapk.emacs.devops" .
      (pod-emacs-devops . (:use-package devops
 				       :ensure t
 				       :vc (:url "https://github.com/kpassapk/devops.el"))))
-    ("pod.babashka.emacs.org-roam" .
+    ("pod.kpassapk.emacs.org-roam" .
      (pod-emacs-org-roam . (:use-package org-roam :ensure t))))
   "Alist of clojure namespace (string) -> deferred elisp feature SPEC.
 On the first `load-ns' for a namespace its SPEC is resolved, the feature
@@ -185,7 +185,7 @@ ARGS are real data, so nothing is string-spliced into elisp."
 
 ;; Core's own namespace, registered like any feature module.
 (pod-emacs-register
- "pod.babashka.emacs"
+ "pod.kpassapk.emacs"
  `(("eval"      . ,#'pod-emacs--eval-string)
    ("eval-file" . ,(lambda (path)
                      (load (expand-file-name path) nil t t)
@@ -274,7 +274,13 @@ Return nil to request shutdown, t to keep running."
   "Run the pod protocol loop over base64-framed stdin/stdout.
 Only core is loaded at startup; feature modules load lazily on `load-ns'."
   (set-binary-mode 'stdin t)
-  (let ((buf (get-buffer-create pod-emacs--in-buffer-name)))
+  (let ((buf (get-buffer-create pod-emacs--in-buffer-name))
+        ;; stdout is the protocol channel: anything user elisp writes there
+        ;; (princ, print, pp) would corrupt the base64 framing and kill the
+        ;; session, so route `standard-output' to stderr for the whole loop.
+        ;; Replies are unaffected: `pod-emacs--send' writes via
+        ;; `send-string-to-terminal', which bypasses `standard-output'.
+        (standard-output #'external-debugging-output))
     (with-current-buffer buf
       (set-buffer-multibyte nil)
       (let ((line nil) (running t))
