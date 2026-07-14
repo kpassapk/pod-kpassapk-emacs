@@ -1,6 +1,6 @@
 # Packages
 
-## `pod.babashka.emacs`
+## `pod.kpassapk.emacs`
 
 | Var         | Args               | Returns                              | Notes |
 |-------------|--------------------|--------------------------------------|-------|
@@ -34,7 +34,7 @@
 | `nil`                         | `nil`     |
 | non-serializable (buffer, fn) | string repr |
 
-## `pod.babashka.emacs.org`
+## `pod.kpassapk.emacs.org`
 
 Each reads or runs an org file through real org-mode in a throwaway buffer.
 
@@ -86,7 +86,7 @@ are always present; the rest appear only when the headline has them:
 | `:children`   | vector of node   | no      | Sub-headlines (omitted on leaves). |
 | `:body`       | string           | no      | Entry text. Only from `to-edn`. |
 
-## `pod.babashka.emacs.calc`
+## `pod.kpassapk.emacs.calc`
 
 Hand arbitrary-precision arithmetic, exact fractions, units, and symbolic
 algebra to Emacs' built-in **Calc** and get the formatted result back as a
@@ -109,7 +109,7 @@ for numeric output. A malformed expression throws with Calc's parser message.
 (calc/convert "55 mph" "kph") ;=> "88.51392 kph"
 ```
 
-## `pod.babashka.emacs.project`
+## `pod.kpassapk.emacs.project`
 
 Point Emacs' built-in **`project`** library at a path and read the enclosing
 project's root and tracked files, using the same VC-aware detection Emacs uses
@@ -127,7 +127,7 @@ interactively.
 (project/files "." {:relative true}) ;=> ["README.md" "src/core.clj" ...]
 ```
 
-## `pod.babashka.emacs.org-roam`
+## `pod.kpassapk.emacs.org-roam`
 
 Read an [org-roam](https://www.orgroam.com/) knowledge graph as data: the nodes
 in a roam directory and the backlinks pointing at any one of them. org-roam is
@@ -157,7 +157,7 @@ directory's current contents.
 ;;=> [{:source-id "c3d4…" :source-title "Note-taking" :point 312}]
 ```
 
-## `pod.babashka.emacs.devops`
+## `pod.kpassapk.emacs.devops`
 
 Manage infrastrucutre with [devops.el](https://github.com/kpassapk/devops.el). The package is installed on first `require` via `use-package` with `:vc`.
 

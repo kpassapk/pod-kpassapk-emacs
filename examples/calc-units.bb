@@ -20,7 +20,7 @@
 (def pod  (.getPath (io/file here ".." "target" "release" "pod-kpassapk-emacs")))
 
 (pods/load-pod [pod])
-(require '[pod.babashka.emacs.calc :as calc])
+(require '[pod.kpassapk.emacs.calc :as calc])
 
 ;;;; ------------------------------------------------------------------ unit data
 

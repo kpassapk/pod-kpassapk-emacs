@@ -5,9 +5,9 @@
 ;; current org buffer at point; here we drive its noninteractive engine over a
 ;; file passed from babashka.
 ;;
-;;   pod.babashka.emacs.devops/tangle      (OPTS)  -> [{:tag :target :files}]
-;;   pod.babashka.emacs.devops/targets     (OPTS)  -> [{:tag :target :remote? ..}]
-;;   pod.babashka.emacs.devops/src-blocks  (OPTS)  -> [{:index :targets ..}]
+;;   pod.kpassapk.emacs.devops/tangle      (OPTS)  -> [{:tag :target :files}]
+;;   pod.kpassapk.emacs.devops/targets     (OPTS)  -> [{:tag :target :remote? ..}]
+;;   pod.kpassapk.emacs.devops/src-blocks  (OPTS)  -> [{:index :targets ..}]
 ;;
 ;; There is deliberately no `execute': `targets' hands the caller a full
 ;; connection spec (:host :user :port :hops :dir), so running a block's
@@ -180,7 +180,7 @@ no/yes or already a TRAMP path).  Nil when the heading has no #+TARGET tag."
 (defun pod-emacs-devops-src-blocks (&optional opts)
   "List src blocks in an org file, each tagged with its devops target(s).
 OPTS is an EDN map; :file <string> is required.  Like
-`pod.babashka.emacs.org/src-blocks', but every block also carries:
+`pod.kpassapk.emacs.org/src-blocks', but every block also carries:
   :heading  <string>  the enclosing headline's title, or nil before the
                       first heading; feed it back to `tangle' as :heading
   :body     <string>  the block's source text, ready to run on the target
@@ -219,7 +219,7 @@ OPTS is an EDN map; :file <string> is required.  Like
 ;;;; ----------------------------------------------------------- registration
 
 (pod-emacs-register
- "pod.babashka.emacs.devops"
+ "pod.kpassapk.emacs.devops"
  `(("tangle"     . ,#'pod-emacs-devops-tangle)
    ("targets"    . ,#'pod-emacs-devops-targets)
    ("src-blocks" . ,#'pod-emacs-devops-src-blocks)))

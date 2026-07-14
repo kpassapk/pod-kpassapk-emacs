@@ -34,11 +34,11 @@ fn is_elisp_root(dir: &Path) -> bool {
 
 /// Return the directory whose resources/ and vendor/ the emacs child loads.
 ///
-/// Order: `$POD_BABASHKA_EMACS_ELISP` override; a checkout enclosing the
+/// Order: `$POD_KPASSAPK_EMACS_ELISP` override; a checkout enclosing the
 /// executable (covers target/{debug,release}/ under the repo root); otherwise
 /// the embedded sources, extracted under the cache dir.
 pub fn elisp_root(cache: &Path) -> PathBuf {
-    if let Some(dir) = std::env::var_os("POD_BABASHKA_EMACS_ELISP") {
+    if let Some(dir) = std::env::var_os("POD_KPASSAPK_EMACS_ELISP") {
         return PathBuf::from(dir);
     }
     if let Ok(exe) = std::env::current_exe().and_then(fs::canonicalize) {
