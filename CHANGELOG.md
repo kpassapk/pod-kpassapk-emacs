@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-14
+
+### Changed
+
+- **BREAKING: all pod namespaces renamed** from `pod.babashka.emacs.*` to
+  `pod.kpassapk.emacs.*`, following the pod naming convention
+  (`pod.<qualifier>.<name>`) — the `pod.babashka.*` prefix is reserved for
+  official babashka pods. Environment variables followed suit:
+  `POD_BABASHKA_EMACS_{BIN,CACHE,ELISP}` are now
+  `POD_KPASSAPK_EMACS_{BIN,CACHE,ELISP}`. Earlier entries in this changelog
+  are written with the new names.
+
+### Fixed
+
+- User elisp writing to stdout (`princ`, `print`, `pp`) no longer corrupts
+  the pod protocol and kills the session: `standard-output` is bound to
+  stderr for the whole protocol loop. Replies are unaffected (they are
+  written via `send-string-to-terminal`, which bypasses `standard-output`).
+  Note that calling `send-string-to-terminal` directly from user elisp still
+  writes to the protocol channel and cannot be intercepted.
+
+## [0.2.0] - 2026-07-13
+
 ### Changed
 
 - **The pod executable is now a Rust binary** (was a babashka script). The
@@ -99,5 +122,7 @@ babashka scripts.
 - Flagship example (`examples/org-outline.clj` + `examples/sample.org`) and a
   `clojure.test` suite (`bb test`).
 
-[Unreleased]: https://github.com/kpassapk/pod-kpassapk-emacs/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/kpassapk/pod-kpassapk-emacs/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/kpassapk/pod-kpassapk-emacs/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/kpassapk/pod-kpassapk-emacs/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kpassapk/pod-kpassapk-emacs/releases/tag/v0.1.0

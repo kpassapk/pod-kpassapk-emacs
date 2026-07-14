@@ -1,6 +1,6 @@
 [package]
 name = "pod-kpassapk-emacs"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Babashka pod exposing Emacs (eval elisp, read org as EDN)"
 repository = "https://github.com/kpassapk/pod-kpassapk-emacs"
