@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Release tooling: `bb release <version> [--dry-run]` cuts and publishes a
+  release (guards, version bump, changelog cut, tests, tag, push) and
+  `bb manifest` prints the pod-registry manifest for the current version.
+  See `doc/release.md` for the full flow and registry publication steps.
+
 ## [0.3.0] - 2026-07-14
 
 ### Changed

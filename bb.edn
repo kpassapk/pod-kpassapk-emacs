@@ -1,5 +1,12 @@
-{:tasks {build {:doc  "Build the pod binary (target/release/pod-kpassapk-emacs)."
-                :task (shell "cargo build --release")}
-         test  {:doc     "Run the pod test suite (builds the pod, loads it, runs clojure.test)."
-                :depends [build]
-                :task    (shell "bb scripts/run-tests.clj")}}}
+{:paths ["scripts"]
+ :tasks {build    {:doc  "Build the pod binary (target/release/pod-kpassapk-emacs)."
+                   :task (shell "cargo build --release")}
+         test     {:doc     "Run the pod test suite (builds the pod, loads it, runs clojure.test)."
+                   :depends [build]
+                   :task    (shell "bb scripts/run-tests.clj")}
+         release  {:doc      "Cut and publish a release: bb release <version> [--dry-run]. See doc/release.md."
+                   :requires ([release])
+                   :task     (apply release/main *command-line-args*)}
+         manifest {:doc      "Print the pod-registry manifest.edn for the version in Cargo.toml."
+                   :requires ([release])
+                   :task     (release/print-manifest)}}}
