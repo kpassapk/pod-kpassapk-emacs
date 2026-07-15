@@ -184,6 +184,8 @@ The pod also prints the resolved emacs path to stderr on startup.
 
 If calls hang, it could be that Emacs that wrote something unexpected to stdout, or a download is in progress. Check `emacs.log`.
 
+Since there is no command loop, undo boundaries are never pushed: edits across `eval` calls merge into a single undo group, so `(undo)` can revert everything at once. Call `(undo-boundary)` after each logical edit (and set `last-command` to `'undo` to continue an undo sequence). See [examples/editor.bb](examples/editor.bb).
+
 ## License
 
 Copyright © 2026 Kyle Passarelli. Distributed under the Eclipse Public License
