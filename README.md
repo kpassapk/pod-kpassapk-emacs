@@ -186,6 +186,10 @@ If calls hang, it could be that Emacs that wrote something unexpected to stdout,
 
 Since there is no command loop, undo boundaries are never pushed: edits across `eval` calls merge into a single undo group, so `(undo)` can revert everything at once. Call `(undo-boundary)` after each logical edit (and set `last-command` to `'undo` to continue an undo sequence). See [examples/editor.bb](examples/editor.bb).
 
+## Roadmap
+
+- Socket transport? (see [ADR-02](doc/adr/02-socket-transport.md))
+
 ## License
 
 Copyright © 2026 Kyle Passarelli. Distributed under the Eclipse Public License

@@ -3,7 +3,8 @@
 Status: Accepted (2026-06-21). Amended (2026-07-13): the shim is now a Rust
 binary (`src/main.rs`) rather than a babashka script — same transport, same
 division of labor; the elisp sources are embedded in the binary so releases
-are a single file.
+are a single file. See ADR-0002 (proposed) for a socket transport that would
+replace the base64-line framing decided here.
 
 ## Context
 
