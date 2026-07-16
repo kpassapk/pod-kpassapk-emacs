@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-16
+
 ### Added
 
 - ADR-02 for socket transport
@@ -131,7 +133,8 @@ babashka scripts.
 - Flagship example (`examples/org-outline.clj` + `examples/sample.org`) and a
   `clojure.test` suite (`bb test`).
 
-[Unreleased]: https://github.com/kpassapk/pod-kpassapk-emacs/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/kpassapk/pod-kpassapk-emacs/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/kpassapk/pod-kpassapk-emacs/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/kpassapk/pod-kpassapk-emacs/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kpassapk/pod-kpassapk-emacs/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kpassapk/pod-kpassapk-emacs/releases/tag/v0.1.0
