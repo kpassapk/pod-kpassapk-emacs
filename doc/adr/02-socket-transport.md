@@ -1,8 +1,6 @@
-# ADR 0002 — Socket transport: Emacs owns the protocol socket, shim becomes a launcher
+# ADR 02 — Socket transport
 
-Status: Proposed (2026-07-15). Targets the next minor release; does not block
-v0.3.x. Supersedes the transport layer of ADR-0001 when implemented; ADR-0001's
-division of labor (shim launches, elisp brain speaks the protocol) stands.
+Status: Proposed (2026-07-15). 
 
 ## Context
 
@@ -13,14 +11,14 @@ raw bytes" primitive. The Rust shim exists to transcode raw bencode to/from
 base64 lines.
 
 That framing makes the child's stdout a protocol channel, which is fragile in a
-pod whose core op is **evaluating arbitrary user elisp**. Issue #1 was exactly
+pod whose core op is evaluating arbitrary user elisp. Issue #1 was exactly
 this: user code writing to `standard-output` corrupted the base64 stream and
 killed the session. The fix (rebind `standard-output` to
 `external-debugging-output` for the whole loop) closes the common case but is
 not airtight — `send-string-to-terminal`, code that rebinds `standard-output`
 back, or a subprocess inheriting fd 1 can still corrupt the stream.
 
-Meanwhile babashka's pod client supports a **socket transport**. It is not in
+Babashka's pod client supports socket transport. It is not in
 the pods README; the contract below is read from
 `babashka/pods` `src/babashka/pods/impl.clj` (`run-pod`, `port-file`,
 `read-port`):
@@ -30,19 +28,18 @@ the pods README; the contract below is read from
    `:options {:transport :socket}`, which the resolver merges into the load
    opts, so registry users get it without writing the option.
 2. babashka launches the pod with env `BABASHKA_POD_TRANSPORT=socket` and
-   **inherits the pod's stdio** (stdout/stderr go to the terminal — free log
-   channel).
+   inherits the pod's stdio (stdout/stderr go to the terminal).
 3. The pod picks a free port, listens on localhost, and writes `<port>\n` to
-   the file `.babashka-pod-<PID>.port` in the **client's working directory**,
+   the file `.babashka-pod-<PID>.port` in the client's working directory,
    where PID is the pod process's pid — i.e. the shim's pid, since the shim is
    the pod executable.
 4. The client polls that file until it exists and ends in `\n`, parses the
    port, connects to `localhost:<port>`, and speaks raw bencode over the
    socket. The file is deleted on client exit.
 
-And unlike batch stdio, Emacs is good at sockets: `make-network-process` with
-`:server t` works in `--batch`, and process filters deliver **raw binary
-chunks** with no line-delimiting. The primitive gap that forced base64 framing
+Unlike batch stdio, Emacs is good at sockets: `make-network-process` with
+`:server t` works in `--batch`, and process filters deliver raw binary
+chunks with no line-delimiting. The primitive gap that forced base64 framing
 does not exist on this path.
 
 ## Decision
@@ -66,9 +63,8 @@ When `BABASHKA_POD_TRANSPORT=socket`:
   ```
 
   The filter appends raw bytes to the same unibyte buffer ADR-0001 uses; the
-  existing `bencode-decode-from-buffer` message loop is reused verbatim.
-  Replies go out with `process-send-string` — raw bencode, no base64, no
-  chunking. The batch main loop becomes
+  existing `bencode-decode-from-buffer` message loop is reused.
+  Replies go out with `process-send-string` (raw bencode). The batch main loop becomes
   `(while pod-emacs--running (accept-process-output nil 1))`.
 
 - **Rust shim** stops transcoding and becomes a pure launcher/supervisor:
@@ -79,12 +75,9 @@ When `BABASHKA_POD_TRANSPORT=socket`:
      (the shim knows its own pid; the child does not),
   3. wait on the child.
 
-  The pump threads and base64 codec are not compiled into this path.
-
 - **Lifecycle**: the socket sentinel exits Emacs when the client connection
-  closes (stdio EOF did this for free; the sentinel replaces it — without it,
-  a killed client orphans the Emacs process). The shim keeps its existing
-  behavior of exiting with the child's status.
+  closes. Without it, a killed client orphans the Emacs process. The shim keeps 
+  its existing behavior of exiting with the child's status.
 
 Transport selection lives in one place in each component: the shim checks the
 env var to decide pump-vs-portfile; `pod-emacs-main` checks it to decide
@@ -110,6 +103,9 @@ shared.
   socket path: the protocol never touches fd 1, and babashka inherits the
   pod's stdio, so `princ`/`message` from user elisp just print to the
   terminal.
+- Performance is likely to be a bit worse. If unix domain sockets are ever
+  supported in babshka pods (see [#64](https://github.com/babashka/pods/issues/64))
+  this might not be so bad.
 - No base64 hop: no ~33% payload inflation, no line chunking for large EDN
   results.
 - Two transports to test. The stdio path stays the default until the socket
@@ -118,6 +114,3 @@ shared.
 - The port file lands in the client's CWD, which must be writable; the
   listening port is reachable by any local process for the session's lifetime.
   Both are properties of babashka's socket contract, not choices we can make.
-- The elisp brain gains an event-driven mode; the request/response invariant
-  (one reply per message, ordered) is unchanged because `accept-process-output`
-  runs filters serially in one thread.

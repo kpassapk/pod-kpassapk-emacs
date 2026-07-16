@@ -3,7 +3,7 @@
 ![Status](https://img.shields.io/badge/status-alpha-blue)
 [![bb compatible](https://raw.githubusercontent.com/babashka/babashka/master/logo/badge.svg)](https://book.babashka.org#badges)
 
-A [babashka pod](https://github.com/babashka/pods) that exposes Emacs to babashka scripts.
+A [babashka pod](https://github.com/babashka/pods) that exposes Emacs to babashka scripts. It's crazy but works [pretty well](./examples/).
 
 ## But why?
 
@@ -52,13 +52,15 @@ See the [Adding Libraries](#adding-libraries) section if you want to add a new e
 - **Clojure / babashka** — to run your scripts and load the pod.
 - **Emacs** — the pod tries a few strategies to resolve the emacs binary. See [Emacs resolution](#emacs-resolution).
 
-The pod executable itself is a self-contained Rust binary. Grab a platform build from the
+The pod executable itself is a self-contained binary. Grab a platform build from the
 [releases page](https://github.com/kpassapk/pod-kpassapk-emacs/releases), or
 build from source with [Rust](https://rustup.rs):
 
 ```
 cargo build --release   # -> target/release/pod-kpassapk-emacs
 ```
+
+See the [ADRs](doc/adr) for more on what the pod executable does.
 
 ## Quickstart
 
@@ -75,7 +77,7 @@ Load the pod by local path and call it:
 (emacs/eval "(+ 1 2)")            ;=> 3
 (emacs/eval "(upcase \"hi\")")    ;=> "HI"
 
-;; Read an org file through real org-mode:
+;; Read an org file
 (org/outline "examples/sample.org")
 ;;=>
 ;; {:file "/abs/path/to/examples/sample.org"

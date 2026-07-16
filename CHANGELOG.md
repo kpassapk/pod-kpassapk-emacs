@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ADR-02 for socket transport
+- Editor example as a stress test
 - Release tooling: `bb release <version> [--dry-run]` cuts and publishes a
   release (guards, version bump, changelog cut, tests, tag, push) and
   `bb manifest` prints the pod-registry manifest for the current version.
