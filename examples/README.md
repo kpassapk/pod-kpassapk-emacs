@@ -23,3 +23,11 @@ bb editor.bb <FILE>
 An editor (!)
 
 ![editor](images/editor.gif)
+
+run org-mode source code blocks from bb
+
+```
+bb org-tui.bb
+```
+
+![org-tui](images/org-tui.gif)

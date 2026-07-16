@@ -9,7 +9,7 @@ echo "$(uname -s) $(uname -m)"
 
 #+name: build
 #+begin_src sh
-sleep 8 && echo "your build is ready!"
+sleep 2 && echo "your build is ready!"
 #+end_src
 
 #+name: size
