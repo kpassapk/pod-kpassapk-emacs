@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- [org] Add `:in-place` opt to `org/execute`
+- [ob-babashka] New library
+
+## Changed
+
+- Allow registering libraries with no vars (e.g. ob-babashka)
+
 ## [0.3.1] - 2026-07-16
 
 ### Added

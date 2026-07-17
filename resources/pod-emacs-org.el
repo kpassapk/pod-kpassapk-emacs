@@ -228,20 +228,46 @@ missing, or out of range."
          (t (error "%d src blocks in %s; pass :name or :index"
                    (length positions) path))))))))
 
+(defun pod-emacs-org--run-block (path opts)
+  "Run the src block selected by OPTS in the current buffer; return its result.
+`default-directory' is set to PATH's directory so a relative `:dir' (e.g. the
+`..' devops.el injects from a heading's #+TARGET) and any relative script path
+resolve against the org file's location.  Point is left on the block that ran
+\(its results, if any, land here)."
+  (setq default-directory
+        (or (file-name-directory (expand-file-name path)) default-directory))
+  (let ((org-confirm-babel-evaluate nil))
+    (pod-emacs-org--goto-block path opts)
+    (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
+    (org-babel-execute-src-block)))
+
 (defun pod-emacs-org-execute (path &optional opts)
   "Execute a source block in org file PATH and return its result.
-OPTS is an EDN map selecting which block to run:
-  :name  <string>  the block whose `#+name:' matches
-  :index <int>     the Nth src block, 0-based, in document order
-If neither key is given and the file holds exactly one src block, run it;
-otherwise signal an error so the caller disambiguates."
-  (pod-emacs-org--with-file path
-    (setq default-directory
-          (or (file-name-directory (expand-file-name path)) default-directory))
-    (let ((org-confirm-babel-evaluate nil))
-      (pod-emacs-org--goto-block path opts)
-      (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
-      (org-babel-execute-src-block))))
+OPTS is an EDN map selecting which block to run and how:
+  :name     <string>  the block whose `#+name:' matches
+  :index    <int>     the Nth src block, 0-based, in document order
+  :in-place <bool>    when non-nil, visit PATH in a real buffer so the block's
+                      results are written back and saved to disk; otherwise run
+                      in a scratch buffer and discard any edits (read-only run)
+If neither :name nor :index is given and the file holds exactly one src
+block, run it; otherwise signal an error so the caller disambiguates."
+  (if (pod-emacs-org--opt opts :in-place)
+      (let ((p (expand-file-name path)))
+        (unless (file-readable-p p)
+          (error "Cannot read org file: %s" p))
+        (let ((buf (find-file-noselect p))
+              (org-inhibit-startup t)
+              (org-element-use-cache nil)
+              (org-mode-hook nil))
+          (unwind-protect
+              (with-current-buffer buf
+                (unless (derived-mode-p 'org-mode)
+                  (delay-mode-hooks (org-mode)))
+                (prog1 (pod-emacs-org--run-block p opts)
+                  (save-buffer)))
+            (kill-buffer buf))))
+    (pod-emacs-org--with-file path
+      (pod-emacs-org--run-block path opts))))
 
 ;;;; ----------------------------------------------------------- registration
 

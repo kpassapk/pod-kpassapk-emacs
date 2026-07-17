@@ -59,9 +59,17 @@ NS-NAME is the fully-qualified namespace string; VARS is an alist of
     ("pod.kpassapk.emacs.devops" .
      (pod-emacs-devops . (:use-package devops
 				       :ensure t
+				       :after org
 				       :vc (:url "https://github.com/kpassapk/devops.el"))))
     ("pod.kpassapk.emacs.org-roam" .
-     (pod-emacs-org-roam . (:use-package org-roam :ensure t))))
+     (pod-emacs-org-roam . (:use-package org-roam :ensure t)))
+    ("pod.kpassapk.emacs.ob-babashka" .
+     (pod-emacs-ob-babashka . (:use-package ob-babashka
+					    :ensure t
+					    :after org
+					    :vc (:url "https://github.com/kpassapk/ob-babashka")
+					    :config
+					    (add-to-list 'org-babel-load-languages '(babashka . t))))))
   "Alist of clojure namespace (string) -> deferred elisp feature SPEC.
 On the first `load-ns' for a namespace its SPEC is resolved, the feature
 `require'd, and the module is expected to `pod-emacs-register' as it loads.
@@ -140,12 +148,17 @@ On failure reply with an error status so the client's `require' throws cleanly."
         (unless spec (error "No such deferred namespace: %s" ns))
         (when (consp spec) (pod-emacs--prepare-config (cdr spec)))
         (require feature)
-        (let ((vars (alist-get ns pod-emacs--namespaces nil nil #'equal)))
-          (unless vars (error "Namespace %s registered no vars on load" ns))
+        ;; Membership, not truthiness: a side-effect-only feature (e.g.
+        ;; ob-babashka, loaded just to enable bb src blocks) registers with an
+        ;; empty vars alist.  That is a valid namespace, not a load failure, so
+        ;; probe with `assoc' — `alist-get' can't tell "no entry" from "entry
+        ;; whose value is nil".
+        (let ((entry (assoc ns pod-emacs--namespaces)))
+          (unless entry (error "Namespace %s registered no vars on load" ns))
           (pod-emacs--send
            (pod-emacs--ht
             "name" ns
-            "vars" (mapcar (lambda (v) (pod-emacs--var (car v))) vars)
+            "vars" (mapcar (lambda (v) (pod-emacs--var (car v))) (cdr entry))
             "id" id))))
     (error
      (pod-emacs--send
