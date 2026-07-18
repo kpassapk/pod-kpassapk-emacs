@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - [org] Add `:in-place` opt to `org/execute`
+- [org] Add `call-blocks` — list every `#+call:` line 
+  (`babel-call` element) in a file as EDN, in document order.
+- [org] `org/execute` gains a `:begin` selector — address a block by its buffer
+  position (as returned by `src-blocks`/`call-blocks`). It runs whichever kind
+  of block is at that position, so src blocks and `#+call:` lines execute
+  through one uniform selector.
 - [ob-babashka] New library
 
 ## Changed

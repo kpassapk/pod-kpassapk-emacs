@@ -13,6 +13,8 @@
 ;;; Code:
 
 (require 'org)
+(require 'org-element)
+(require 'ob-lob nil t)
 (require 'pod-emacs)
 (require 'pod-emacs-util)
 (require 'subr-x)
@@ -199,17 +201,54 @@ Returns a vector of nodes; each is a hash-table with:
           (setq i (1+ i))))
       (vconcat (nreverse acc)))))
 
+(defun pod-emacs-org-call-blocks (path &optional _opts)
+  "List every `#+call:' line in org file PATH as EDN, in document order.
+A `#+call:' line is an org `babel-call' element: it invokes a *named* block
+defined elsewhere (another heading, another file, or the library of babel).
+`src-blocks' does not see these, so a driver that wants every runnable step
+must merge both lists (sort by :begin).  Returns a vector of nodes:
+  :index     <int>     0-based position among call blocks
+  :name      <string>  the call line's own `#+name:', or nil
+  :call      <string>  the name of the block being called
+  :arguments <string>  the argument string inside the parens, or nil
+  :begin     <int>     buffer position of the `#+call:' line itself
+  :value     <string>  the raw call value, e.g. \"foo(BAR=baz)\""
+  (pod-emacs-org--with-file path
+    (let ((i -1))
+      (vconcat
+       (org-element-map (org-element-parse-buffer 'element) 'babel-call
+         (lambda (el)
+           (setq i (1+ i))
+           (pod-emacs--ht
+            :index i
+            :name (pod-emacs-org--str (org-element-property :name el))
+            :call (pod-emacs-org--str (org-element-property :call el))
+            :arguments (pod-emacs-org--str (org-element-property :arguments el))
+            ;; :post-affiliated is the `#+call:' line itself (skips a leading
+            ;; `#+name:'), so it is the position `execute' must run from.
+            :begin (or (org-element-property :post-affiliated el)
+                       (org-element-property :begin el))
+            :value (pod-emacs-org--str (org-element-property :value el)))))))))
+
 (defun pod-emacs-org--goto-block (path opts)
-  "Move point to the src block in the current buffer selected by OPTS.
+  "Move point to the block in the current buffer selected by OPTS.
 OPTS is an EDN map; recognized keys:
-  :name  <string>  the block whose `#+name:' matches
+  :begin <int>     buffer position of the block (src or `#+call:' line); the
+                   universal selector returned by `src-blocks'/`call-blocks'
+  :name  <string>  the src block whose `#+name:' matches
   :index <int>     the Nth src block, 0-based, in document order
-With neither key, require the file to hold exactly one src block.  PATH is
+With none of these, require the file to hold exactly one src block.  PATH is
 used only for error messages.  Signals when the selection is ambiguous,
 missing, or out of range."
-  (let ((name  (pod-emacs-org--opt opts :name))
+  (let ((begin (pod-emacs-org--opt opts :begin))
+        (name  (pod-emacs-org--opt opts :name))
         (index (pod-emacs-org--opt opts :index)))
     (cond
+     (begin
+      (unless (and (integerp begin) (<= (point-min) begin) (<= begin (point-max)))
+        (error "Block position %s out of range (buffer is %d..%d)"
+               begin (point-min) (point-max)))
+      (goto-char begin))
      (name
       (let ((pos (org-babel-find-named-block name)))
         (unless pos (error "No src block named: %s" name))
@@ -229,7 +268,9 @@ missing, or out of range."
                    (length positions) path))))))))
 
 (defun pod-emacs-org--run-block (path opts)
-  "Run the src block selected by OPTS in the current buffer; return its result.
+  "Run the block selected by OPTS in the current buffer; return its result.
+Handles both org-babel src blocks and `#+call:' lines (`babel-call'
+elements): the element type at point decides which executor runs.
 `default-directory' is set to PATH's directory so a relative `:dir' (e.g. the
 `..' devops.el injects from a heading's #+TARGET) and any relative script path
 resolve against the org file's location.  Point is left on the block that ran
@@ -238,18 +279,29 @@ resolve against the org file's location.  Point is left on the block that ran
         (or (file-name-directory (expand-file-name path)) default-directory))
   (let ((org-confirm-babel-evaluate nil))
     (pod-emacs-org--goto-block path opts)
-    (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
-    (org-babel-execute-src-block)))
+    (if (eq 'babel-call (org-element-type (org-element-at-point)))
+        ;; A `#+call:' line: resolve the named block it invokes, load that
+        ;; block's language backend (the call inherits the callee's language),
+        ;; then run it.
+        (progn
+          (when-let* ((info (org-babel-lob-get-info)))
+            (pod-emacs-org--require-lang (car info)))
+          (org-babel-lob-execute-maybe))
+      (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
+      (org-babel-execute-src-block))))
 
 (defun pod-emacs-org-execute (path &optional opts)
-  "Execute a source block in org file PATH and return its result.
+  "Execute a src block or `#+call:' line in org file PATH; return its result.
 OPTS is an EDN map selecting which block to run and how:
-  :name     <string>  the block whose `#+name:' matches
+  :begin    <int>     buffer position of the block (src or `#+call:' line), as
+                      returned by `src-blocks'/`call-blocks'; runs whichever
+                      kind of block is at that position
+  :name     <string>  the src block whose `#+name:' matches
   :index    <int>     the Nth src block, 0-based, in document order
   :in-place <bool>    when non-nil, visit PATH in a real buffer so the block's
                       results are written back and saved to disk; otherwise run
                       in a scratch buffer and discard any edits (read-only run)
-If neither :name nor :index is given and the file holds exactly one src
+If none of :begin/:name/:index is given and the file holds exactly one src
 block, run it; otherwise signal an error so the caller disambiguates."
   (if (pod-emacs-org--opt opts :in-place)
       (let ((p (expand-file-name path)))
@@ -273,11 +325,12 @@ block, run it; otherwise signal an error so the caller disambiguates."
 
 (pod-emacs-register
  "pod.kpassapk.emacs.org"
- `(("outline"    . ,#'pod-emacs-org-outline)
-   ("headlines"  . ,#'pod-emacs-org-headlines)
-   ("to-edn"     . ,#'pod-emacs-org-to-edn)
-   ("src-blocks" . ,#'pod-emacs-org-src-blocks)
-   ("execute"    . ,#'pod-emacs-org-execute)))
+ `(("outline"     . ,#'pod-emacs-org-outline)
+   ("headlines"   . ,#'pod-emacs-org-headlines)
+   ("to-edn"      . ,#'pod-emacs-org-to-edn)
+   ("src-blocks"  . ,#'pod-emacs-org-src-blocks)
+   ("call-blocks" . ,#'pod-emacs-org-call-blocks)
+   ("execute"     . ,#'pod-emacs-org-execute)))
 
 (provide 'pod-emacs-org)
 ;;; pod-emacs-org.el ends here
