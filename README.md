@@ -35,6 +35,20 @@ It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) 
 - [org roam](https://github.com/org-roam/org-roam)
 - [devops.el](https://github.com/kpassapk/devops.el)
 
+## Usage
+
+```
+(require '[babashka.pods :as pods])
+
+(pods/load-pod 'kpassapk/emacs "0.3.1")
+
+(require '[pod.kpassapk.emacs :as emacs])
+
+(prn (emacs/eval "(+ 1 1)"))
+```
+
+See [examples](./examples/) for more.
+
 ### Loading elisp
 
 The pod defers loading of elisp packages until they are required from Clojure. 
@@ -45,7 +59,7 @@ The pod defers loading of elisp packages until they are required from Clojure.
 
 Since loading is deferred, this repository can provide a large library of emacs packages, which users can pick _a la carte_.
 
-See the [Adding Libraries](#adding-libraries) section if you want to add a new elisp library. Pull requests welcome.
+See the [Packages](#packages) section if you want to add a new elisp library. Pull requests welcome.
 
 ## Requirements
 
