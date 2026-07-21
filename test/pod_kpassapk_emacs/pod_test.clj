@@ -271,4 +271,14 @@
                        "#+begin_src emacs-lisp\n(+ 40 2)\n#+end_src\n"))
         (is (= "hi-from-name" (execute (.getPath tmp) {:name "greet"})))
         (is (= 42 (execute (.getPath tmp) {:name "addup"})))
+        (finally (.delete tmp)))))
+
+  (testing "a block whose head sits at point-min is found by :index and by the
+            single-block fallback (org-babel-next-src-block skips it; the
+            positional selector must not)"
+    (let [tmp (java.io.File/createTempFile "pod-exec-bof" ".org")]
+      (try
+        (spit tmp "#+begin_src sh\necho first-line-block\n#+end_src\n")
+        (is (= "first-line-block" (execute (.getPath tmp) {:index 0})))
+        (is (= "first-line-block" (execute (.getPath tmp))))
         (finally (.delete tmp))))))

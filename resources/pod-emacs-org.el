@@ -120,11 +120,13 @@ else falls back to `ob-LANG'."
         (require feature nil t)))))
 
 (defun pod-emacs-org--block-positions ()
-  "Return a list of buffer positions, one per src block, in document order."
+  "Return a list of buffer positions, one per src block, in document order.
+Collected with `org-babel-map-src-blocks' rather than
+`org-babel-next-src-block', which skips a block whose head sits at
+point-min (Emacs 31)."
   (let ((positions '()))
-    (goto-char (point-min))
-    (while (ignore-errors (org-babel-next-src-block))
-      (push (point) positions))
+    (org-babel-map-src-blocks nil
+      (push (or (org-babel-where-is-src-block-head) (point)) positions))
     (nreverse positions)))
 
 (defun pod-emacs-org--file-keyword (kw)
