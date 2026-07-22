@@ -12,6 +12,7 @@
 ;;   :max-level  <int>   only include headlines at or above this depth
 ;;; Code:
 
+(require 'cl-lib)
 (require 'org)
 (require 'org-element)
 (require 'ob-lob nil t)
@@ -279,18 +280,32 @@ resolve against the org file's location.  Point is left on the block that ran
 \(its results, if any, land here)."
   (setq default-directory
         (or (file-name-directory (expand-file-name path)) default-directory))
-  (let ((org-confirm-babel-evaluate nil))
-    (pod-emacs-org--goto-block path opts)
-    (if (eq 'babel-call (org-element-type (org-element-at-point)))
-        ;; A `#+call:' line: resolve the named block it invokes, load that
-        ;; block's language backend (the call inherits the callee's language),
-        ;; then run it.
-        (progn
-          (when-let* ((info (org-babel-lob-get-info)))
-            (pod-emacs-org--require-lang (car info)))
-          (org-babel-lob-execute-maybe))
-      (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
-      (org-babel-execute-src-block))))
+  ;; `org-babel-eval' swallows a failing process: it pops an error buffer,
+  ;; `message's, and returns partial output.  A pod caller needs the failure
+  ;; as a thrown error carrying the exit code, so turn the notification into
+  ;; a signal — but only for a real failure; stderr output with exit 0 also
+  ;; notifies and must stay non-fatal.
+  (cl-letf* ((notify (symbol-function 'org-babel-eval-error-notify))
+             ((symbol-function 'org-babel-eval-error-notify)
+              (lambda (exit-code stderr)
+                (if (or (not (numberp exit-code)) (> exit-code 0))
+                    (let ((err (string-trim (or stderr ""))))
+                      (error "Babel evaluation exited with code %s%s"
+                             (if (numberp exit-code) exit-code "?")
+                             (if (string-empty-p err) "" (concat ": " err))))
+                  (funcall notify exit-code stderr)))))
+    (let ((org-confirm-babel-evaluate nil))
+      (pod-emacs-org--goto-block path opts)
+      (if (eq 'babel-call (org-element-type (org-element-at-point)))
+          ;; A `#+call:' line: resolve the named block it invokes, load that
+          ;; block's language backend (the call inherits the callee's language),
+          ;; then run it.
+          (progn
+            (when-let* ((info (org-babel-lob-get-info)))
+              (pod-emacs-org--require-lang (car info)))
+            (org-babel-lob-execute-maybe))
+        (pod-emacs-org--require-lang (car (org-babel-get-src-block-info t)))
+        (org-babel-execute-src-block)))))
 
 (defun pod-emacs-org-execute (path &optional opts)
   "Execute a src block or `#+call:' line in org file PATH; return its result.

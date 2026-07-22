@@ -18,8 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through one uniform selector.
 - [ob-babashka] New library
 
-## Changed
+### Changed
 
+- [org] `org/execute` now throws when a block's process exits non-zero
+  (message carries the exit code and stderr) instead of silently returning
+  partial output. Stderr output with exit 0 remains non-fatal.
 - Allow registering libraries with no vars (e.g. ob-babashka)
 
 ## [0.3.1] - 2026-07-16

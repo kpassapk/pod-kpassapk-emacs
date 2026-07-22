@@ -281,4 +281,20 @@
         (spit tmp "#+begin_src sh\necho first-line-block\n#+end_src\n")
         (is (= "first-line-block" (execute (.getPath tmp) {:index 0})))
         (is (= "first-line-block" (execute (.getPath tmp))))
+        (finally (.delete tmp)))))
+
+  (testing "a block exiting non-zero throws with the exit code in the message"
+    (let [tmp (java.io.File/createTempFile "pod-exec-fail" ".org")]
+      (try
+        (spit tmp "#+begin_src sh\nexit 3\n#+end_src\n")
+        (let [e (try (execute (.getPath tmp) {:index 0}) (catch Exception e e))]
+          (is (some? e))
+          (is (re-find #"exited with code 3" (ex-message e))))
+        (finally (.delete tmp)))))
+
+  (testing "stderr output with exit 0 stays non-fatal"
+    (let [tmp (java.io.File/createTempFile "pod-exec-warn" ".org")]
+      (try
+        (spit tmp "#+begin_src sh\necho warn >&2\necho ok\n#+end_src\n")
+        (is (= "ok" (execute (.getPath tmp) {:index 0})))
         (finally (.delete tmp))))))
