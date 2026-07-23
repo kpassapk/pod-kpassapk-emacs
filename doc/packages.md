@@ -86,46 +86,29 @@ are always present; the rest appear only when the headline has them:
 | `:children`   | vector of node   | no      | Sub-headlines (omitted on leaves). |
 | `:body`       | string           | no      | Entry text. Only from `to-edn`. |
 
-## `pod.kpassapk.emacs.calc`
+## Thin wrappers: use `clj!` instead
 
-Hand arbitrary-precision arithmetic, exact fractions, units, and symbolic
-algebra to Emacs' built-in **Calc** and get the formatted result back as a
-string.
-
-| Var       | Args           | Returns       | Notes |
-|-----------|----------------|---------------|-------|
-| `eval`    | `[expr]`       | result string | `expr` is a Calc algebraic expression (e.g. `"2^100"`, `"sqrt(2)"`, `"evalv(pi)"`). Big integers, exact fractions, matrices and symbolic algebra all work. |
-| `convert` | `[expr units]` | result string | Re-express `expr` (which carries its own units) in the target `units`. |
-
-Precision is Calc's default; there is no per-call precision knob — Calc caches
-precision in process-global state and the Emacs child is long-lived, so a change
-would leak into unrelated later calls. Pass an explicit form like `"evalv(pi)"`
-for numeric output. A malformed expression throws with Calc's parser message.
+Built-in libraries whose functions take and return plain data (Calc,
+project.el, ...) need no pod namespace: call them directly with
+`emacs/clj!`. The former `pod.kpassapk.emacs.calc` and
+`pod.kpassapk.emacs.project` namespaces were removed in favor of this.
 
 ```clojure
-(calc/eval "2^100")           ;=> "1267650600228229401496703205376"
-(calc/eval "sqrt(2)")         ;=> "1.41421356237"
-(calc/convert "2 in" "cm")    ;=> "5.08 cm"
-(calc/convert "55 mph" "kph") ;=> "88.51392 kph"
+;; Calc — arbitrary-precision arithmetic and unit conversion:
+(emacs/clj! (el/require 'calc) (el/require 'calc-units))
+(emacs/clj! (el/calc-eval "2^100"))   ;=> "1267650600228229401496703205376"
+(emacs/clj! (el/math-format-value
+             (el/math-convert-units (el/math-read-expr "2 in")
+                                    (el/math-read-expr "cm"))))  ;=> "5.08 cm"
+
+;; project.el — VC-aware project root and file list:
+(emacs/clj! (el/require 'project))
+(emacs/clj! (el/expand-file-name (el/project-root (el/project-current nil "."))))
+(emacs/clj! (vec (el/project-files (el/project-current nil "."))))
 ```
 
-## `pod.kpassapk.emacs.project`
-
-Point Emacs' built-in **`project`** library at a path and read the enclosing
-project's root and tracked files, using the same VC-aware detection Emacs uses
-interactively.
-
-| Var     | Args                     | Returns           | Notes |
-|---------|--------------------------|-------------------|-------|
-| `root`  | `[path]`                 | root dir (string) | Absolute path of the project enclosing `path`. Throws if `path` is in no project. |
-| `files` | `[path]` / `[path opts]` | vector of paths   | The project's tracked files. With `{:relative true}` the paths are relative to the root; otherwise absolute. |
-
-`path` may be any file or directory inside the project.
-
-```clojure
-(project/root ".")                   ;=> "/home/me/src/myproj/"
-(project/files "." {:relative true}) ;=> ["README.md" "src/core.clj" ...]
-```
+`defn` helpers once (definitions persist for the pod session) to add error
+handling or shape the result — see [examples/calc-units.bb](../examples/calc-units.bb).
 
 ## `pod.kpassapk.emacs.org-roam`
 

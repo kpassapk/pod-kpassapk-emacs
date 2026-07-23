@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through one uniform selector.
 - [ob-babashka] New library
 
+### Removed
+
+- **BREAKING:** the `pod.kpassapk.emacs.calc` and `pod.kpassapk.emacs.project`
+  namespaces. Both were thin data-in/data-out wrappers over plain elisp
+  functions, which `clj!` now subsumes — call `calc-eval`,
+  `math-convert-units`, `project-root` etc. directly via `el/`. See
+  `doc/packages.md` ("Thin wrappers: use `clj!` instead") and
+  `examples/calc-units.bb`.
+
 ### Fixed
 
 - The protocol loop re-anchors to its input buffer around every decode and

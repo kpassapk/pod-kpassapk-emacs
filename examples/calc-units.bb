@@ -4,10 +4,11 @@
 ;;   bb examples/calc-units.bb                 ; interactive TUI
 ;;   bb examples/calc-units.bb 100 mi km       ; one-shot, prints "160.9344 km"
 ;;
-;; The pod exposes Calc's units engine as `calc/convert' (and `calc/eval' for
-;; the affine temperature scales Calc treats as non-multiplicative).  babashka
-;; owns the UI; Emacs owns the arithmetic.  Conversions are synchronous and
-;; instant, so we just recompute the result on every keystroke.
+;; Calc's units engine is driven through `emacs/clj!': the helpers below are
+;; defn'd *inside Emacs* once at startup (definitions persist for the pod
+;; session) and called per conversion.  babashka owns the UI; Emacs owns the
+;; arithmetic.  Conversions are synchronous and instant, so we just recompute
+;; the result on every keystroke.
 
 (require '[babashka.pods :as pods]
          '[clojure.java.io :as io]
@@ -20,7 +21,29 @@
 (def pod  (.getPath (io/file here ".." "target" "release" "pod-kpassapk-emacs")))
 
 (pods/load-pod [pod])
-(require '[pod.kpassapk.emacs.calc :as calc])
+(require '[pod.kpassapk.emacs :as emacs])
+
+;; Calc helpers, defined in Emacs.  `calc-eval' returns a string on success and
+;; a (POS . MSG) cons on a parse error; `math-read-expr' returns (error POS
+;; MSG).  Both are turned into elisp signals so the babashka side sees a
+;; thrown ex-info carrying Calc's own parser message.
+(emacs/clj!
+ (el/require 'calc)
+ (el/require 'calc-units)
+
+ (defn calc-eval* [expr]
+   (let [r (el/calc-eval expr)]
+     (if (string? r) r (el/error "calc: %s" (el/cdr r)))))
+
+ (defn calc-read* [s]
+   (let [e (el/math-read-expr s)]
+     (if (= 'error (el/car-safe e))
+       (el/error "calc: %s" (nth e 2))
+       e)))
+
+ (defn calc-convert* [expr units]
+   (el/math-format-value
+    (el/math-convert-units (calc-read* expr) (calc-read* units)))))
 
 ;;;; ------------------------------------------------------------------ unit data
 
@@ -39,9 +62,9 @@
 
 (def temp-units #{"degC" "degF" "K"})
 
-;; Calc's `convert' multiplies units, so it gets °F→°C wrong (it scales the
-;; offset away).  The temperature scales are affine, so we normalise to Celsius
-;; and back out with explicit formulas — still evaluated by Calc, via `eval'.
+;; Calc's unit conversion multiplies units, so it gets °F→°C wrong (it scales
+;; the offset away).  The temperature scales are affine, so we normalise to
+;; Celsius and back out with explicit formulas — still evaluated by Calc.
 (def ->celsius {"degC" "(%s)" "degF" "((%s)-32)*5/9" "K" "(%s)-273.15"})
 (def celsius-> {"degC" "(%s)" "degF" "(%s)*9/5+32"   "K" "(%s)+273.15"})
 
@@ -53,16 +76,16 @@
   (let [amount (if (blankish? amount) "0" amount)]
     (try
       (cond
-        ;; both temperatures: affine path through calc/eval
+        ;; both temperatures: affine path through calc-eval*
         (and (temp-units from) (temp-units to))
-        [:ok (str (calc/eval (format (celsius-> to)
-                                     (format (->celsius from) amount)))
+        [:ok (str (emacs/clj! (calc-eval* ~(format (celsius-> to)
+                                                   (format (->celsius from) amount))))
                   " " to)]
         ;; mixing a temperature with a non-temperature is meaningless
         (or (temp-units from) (temp-units to))
         [:err (str "can't convert between " from " and " to)]
         :else
-        [:ok (calc/convert (str amount " " from) to)])
+        [:ok (emacs/clj! (calc-convert* ~(str amount " " from) ~to))])
       (catch Exception e [:err (ex-message e)]))))
 
 ;;;; ---------------------------------------------------------- terminal drawing

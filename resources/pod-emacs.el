@@ -54,8 +54,6 @@ NS-NAME is the fully-qualified namespace string; VARS is an alist of
 
 (defvar pod-emacs--deferred
   '(("pod.kpassapk.emacs.org" . pod-emacs-org)
-    ("pod.kpassapk.emacs.calc" . pod-emacs-calc)
-    ("pod.kpassapk.emacs.project" . pod-emacs-project)
     ("pod.kpassapk.emacs.devops" .
      (pod-emacs-devops . (:use-package devops
 				       :ensure t

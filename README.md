@@ -27,9 +27,10 @@ It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) 
 
 **Built-in:**
 
-- calc
-- project.el
 - org mode
+
+Other built-in libraries (calc, project.el, ...) need no dedicated namespace —
+call them directly with the `clj!` macro.
 
 **Third party:**
 
