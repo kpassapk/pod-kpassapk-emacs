@@ -92,6 +92,27 @@ VARS is an alist of (VAR-NAME . HANDLER); HANDLER is `apply'd to the
 decoded invoke args.  Re-registering NS replaces its previous vars."
   (setf (alist-get ns pod-emacs--namespaces nil nil #'equal) vars))
 
+(defvar pod-emacs--client-vars nil
+  "Client-side vars, an alist (NS-NAME . ((VAR-NAME . CODE))).
+CODE is Clojure source shipped in the var's `code' field of the describe
+reply; the babashka client evaluates it in namespace NS-NAME instead of
+creating a remote-invoke stub.  This is how the pod ships macros, which
+cannot run remotely: their job is to transform forms on the client.")
+
+(defun pod-emacs-register-client (ns vars)
+  "Register client-side VARS, an alist (VAR-NAME . CODE), under NS."
+  (setf (alist-get ns pod-emacs--client-vars nil nil #'equal) vars))
+
+(defun pod-emacs--ns-vars (ns handlers)
+  "The describe/load-ns var entries for NS: HANDLERS then client-side vars.
+Handler vars are listed by name only (the client makes invoke stubs);
+client vars carry their Clojure source in `code'.  Handlers come first so
+a shipped macro can reference the stubs it expands to."
+  (append
+   (mapcar (lambda (v) (pod-emacs--var (car v))) handlers)
+   (mapcar (lambda (v) (pod-emacs--var (car v) "code" (cdr v)))
+           (alist-get ns pod-emacs--client-vars nil nil #'equal))))
+
 ;;;; ---------------------------------------------------------------- describe
 
 (defun pod-emacs--var (name &rest kvs)
@@ -107,8 +128,7 @@ it — and its elisp module — on first `require' via a `load-ns' op."
          (eager (mapcar (lambda (ns)
                           (pod-emacs--ht
                            "name" (car ns)
-                           "vars" (mapcar (lambda (v) (pod-emacs--var (car v)))
-                                          (cdr ns))))
+                           "vars" (pod-emacs--ns-vars (car ns) (cdr ns))))
                         (reverse pod-emacs--namespaces)))
          (deferred (delq nil
                          (mapcar (lambda (d)
@@ -158,7 +178,7 @@ On failure reply with an error status so the client's `require' throws cleanly."
           (pod-emacs--send
            (pod-emacs--ht
             "name" ns
-            "vars" (mapcar (lambda (v) (pod-emacs--var (car v))) (cdr entry))
+            "vars" (pod-emacs--ns-vars ns (cdr entry))
             "id" id))))
     (error
      (pod-emacs--send
@@ -196,15 +216,78 @@ ARGS are real data, so nothing is string-spliced into elisp."
                  :major-version emacs-major-version
                  :exec (or (car command-line-args) "emacs")))
 
+(defun pod-emacs--eval-clj (code)
+  "Compile Clojure source CODE with cljbang and evaluate it in this Emacs.
+cljbang is `require'd lazily so sessions that never use `clj!' don't load
+it.  Definitions persist for the life of the emacs child, so one call can
+`defn' helpers that later calls use."
+  (require 'cljbang)
+  (cljbang-eval-string code))
+
 ;; Core's own namespace, registered like any feature module.
 (pod-emacs-register
  "pod.kpassapk.emacs"
  `(("eval"      . ,#'pod-emacs--eval-string)
+   ("eval-clj"  . ,#'pod-emacs--eval-clj)
    ("eval-file" . ,(lambda (path)
                      (load (expand-file-name path) nil t t)
                      (file-name-nondirectory path)))
    ("funcall"   . ,#'pod-emacs--funcall)
    ("version"   . ,#'pod-emacs--version)))
+
+;; The `clj!' macro runs on the babashka side: it captures its body as forms,
+;; resolves ~/~@ interpolations, pr-strs the result and sends it to `eval-clj'
+;; above, where cljbang compiles and runs it.  The walk is template-style, not
+;; syntax-quote: symbols stay bare, so (find-file ...) is not qualified into
+;; some babashka namespace.  #(...) arrives from the reader as fn*, which
+;; cljbang doesn't compile, so the walk rewrites it to fn.
+(pod-emacs-register-client
+ "pod.kpassapk.emacs"
+ '(("clj!" . "
+(defn- -clj-unquote? [f]
+  (and (seq? f) (= 'clojure.core/unquote (first f))))
+
+(defn- -clj-splice? [f]
+  (and (seq? f) (= 'clojure.core/unquote-splicing (first f))))
+
+(declare -clj-quote)
+
+(defn- -clj-parts [coll]
+  (cons 'clojure.core/concat
+        (map (fn [x]
+               (if (-clj-splice? x)
+                 (second x)
+                 (list 'clojure.core/list (-clj-quote x))))
+             coll)))
+
+(defn- -clj-quote [form]
+  (cond
+    (-clj-unquote? form) (second form)
+    (seq? form) (cond
+                  (empty? form) '(clojure.core/list)
+                  (= 'fn* (first form)) (-clj-parts (cons 'fn (rest form)))
+                  :else (-clj-parts form))
+    (vector? form) (list 'clojure.core/vec (-clj-parts form))
+    (map? form) (list 'clojure.core/apply 'clojure.core/array-map
+                      (-clj-parts (apply concat form)))
+    (set? form) (list 'clojure.core/set (-clj-parts (seq form)))
+    :else (list 'quote form)))
+
+(defmacro clj!
+  \"Run BODY (Clojure forms) inside Emacs via cljbang; return the last value.
+  ~x interpolates a babashka value into the code; ~@xs splices a collection.
+  Use el/name to call Emacs Lisp directly, e.g. (el/buffer-list).
+  Definitions persist across calls for the life of the pod session.\"
+  [& body]
+  (list 'pod.kpassapk.emacs/eval-clj
+        (list 'clojure.core/binding
+              '[clojure.core/*print-length* nil clojure.core/*print-level* nil]
+              (list 'clojure.core/apply 'clojure.core/str
+                    (list 'clojure.core/interpose \"\\n\"
+                          (list 'clojure.core/map 'clojure.core/pr-str
+                                (cons 'clojure.core/list
+                                      (map -clj-quote body))))))))
+")))
 
 (defun pod-emacs--dispatch (var args)
   "Run pod VAR (a fully-qualified \"ns/name\" string) with ARGS (a list)."
@@ -267,20 +350,28 @@ ARGS are real data, so nothing is string-spliced into elisp."
 ;;;; ---------------------------------------------------------------- main loop
 
 (defun pod-emacs--drain ()
-  "Process all complete bencode messages buffered in the current buffer.
-Return nil to request shutdown, t to keep running."
-  (let ((keep t) (more t))
-    (while (and more (> (buffer-size) 0))
-      (goto-char (point-min))
-      (condition-case _
-          (let ((msg (bencode-decode-from-buffer :dict-type 'hash-table
-                                                 :list-type 'list)))
-            (delete-region (point-min) (point))
-            (when (eq (pod-emacs--handle msg) :shutdown)
-              (setq keep nil more nil)))
-        (bencode-end-of-file
-         ;; partial message: wait for more bytes from stdin
-         (setq more nil))))
+  "Process all complete bencode messages buffered in the pod input buffer.
+Return nil to request shutdown, t to keep running.  The input buffer is
+re-entered for every decode rather than assumed current: a handler that
+visits a file (`find-file', org-babel, ...) leaves that buffer current, and
+the protocol must never read bencode from — or splice bytes into — user
+buffers."
+  (let ((buf (get-buffer pod-emacs--in-buffer-name))
+        (keep t) (more t))
+    (while more
+      (let ((msg (with-current-buffer buf
+                   (when (> (buffer-size) 0)
+                     (goto-char (point-min))
+                     (condition-case _
+                         (prog1 (bencode-decode-from-buffer
+                                 :dict-type 'hash-table :list-type 'list)
+                           (delete-region (point-min) (point)))
+                       ;; partial message: wait for more bytes from stdin
+                       (bencode-end-of-file nil))))))
+        (if (null msg)
+            (setq more nil)
+          (when (eq (pod-emacs--handle msg) :shutdown)
+            (setq keep nil more nil)))))
     keep))
 
 (defun pod-emacs-main ()
@@ -294,17 +385,19 @@ Only core is loaded at startup; feature modules load lazily on `load-ns'."
         ;; Replies are unaffected: `pod-emacs--send' writes via
         ;; `send-string-to-terminal', which bypasses `standard-output'.
         (standard-output #'external-debugging-output))
-    (with-current-buffer buf
-      (set-buffer-multibyte nil)
-      (let ((line nil) (running t))
-        (while (and running
-                    (setq line (condition-case _
-                                   (read-string "")
-                                 ((end-of-file error) nil))))
-          (when (> (length line) 0)
+    (with-current-buffer buf (set-buffer-multibyte nil))
+    (let ((line nil) (running t))
+      (while (and running
+                  (setq line (condition-case _
+                                 (read-string "")
+                               ((end-of-file error) nil))))
+        (when (> (length line) 0)
+          ;; re-enter the input buffer per line: a handler may have left a
+          ;; user buffer current (see pod-emacs--drain)
+          (with-current-buffer buf
             (goto-char (point-max))
-            (insert (base64-decode-string line)))
-          (setq running (pod-emacs--drain))))))
+            (insert (base64-decode-string line))))
+        (setq running (pod-emacs--drain)))))
   (kill-emacs 0))
 
 (provide 'pod-emacs)

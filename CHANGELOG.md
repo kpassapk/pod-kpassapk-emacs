@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `clj!` — client-side macro (shipped via the describe reply's `code` field)
+  that runs Clojure inside Emacs, compiled there by vendored
+  [cljbang.el](https://github.com/borkdude/cljbang.el) (pinned at `f18da3e`).
+  Supports `~`/`~@` interpolation of babashka values; `el/name` for elisp
+  interop; definitions persist for the pod session. Also adds `eval-clj`
+  for raw Clojure source strings.
+- Client-side var registry (`pod-emacs-register-client`): any namespace can
+  ship Clojure code to the babashka client through the pod protocol.
+
 - [org] Add `:in-place` opt to `org/execute`
 - [org] Add `call-blocks` — list every `#+call:` line 
   (`babel-call` element) in a file as EDN, in document order.
@@ -17,6 +26,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of block is at that position, so src blocks and `#+call:` lines execute
   through one uniform selector.
 - [ob-babashka] New library
+
+### Fixed
+
+- The protocol loop re-anchors to its input buffer around every decode and
+  insert. A call that left another buffer current (e.g. `find-file`) made the
+  next request decode bencode out of that buffer's text, killing the session
+  with `bencode-invalid-byte`.
+- Released binaries embed `pod-emacs-ob-babashka.el`; it was missing from the
+  embedded resource list, so the ob-babashka namespace only loaded from a repo
+  checkout.
 
 ### Changed
 

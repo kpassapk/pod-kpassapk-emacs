@@ -159,6 +159,18 @@
   (testing "the session survives calls that wrote to standard-output"
     (is (= 4 (ev "(+ 2 2)")))))
 
+(deftest eval-buffer-switch-test
+  (testing "a call that leaves another buffer current does not corrupt the
+            protocol (drain/insert must re-anchor to the pod input buffer)"
+    (let [tmp (java.io.File/createTempFile "pod-visit" ".txt")]
+      (try
+        (spit tmp "hello from the file\n")
+        (is (= (.getName tmp) (ev (format "(find-file %s)(buffer-name)"
+                                          (pr-str (.getPath tmp))))))
+        ;; the next call used to die decoding the visited file's text
+        (is (= 3 (ev "(+ 1 2)")))
+        (finally (.delete tmp))))))
+
 (deftest eval-error-test
   (testing "arithmetic error throws with an Arith* message"
     (let [e (try (ev "(/ 1 0)") (catch Exception e e))]
@@ -170,6 +182,70 @@
     (let [e (try (ev "(no-such-fn-xyz)") (catch Exception e e))]
       (is (some? e))
       (is (= "void-function" (:type (ex-data e)))))))
+
+;;;; ------------------------------------------------------------- clj!
+
+;; clj! is a client-side macro shipped in the describe reply's `code' field:
+;; its body is Clojure, compiled by cljbang inside the emacs child. The pod is
+;; already loaded (the `loaded' defonce above runs before these forms are
+;; read), so the macro can be referenced directly.
+
+(deftest clj-basic-test
+  (testing "arithmetic"
+    (is (= 3 (pod.kpassapk.emacs/clj! (+ 1 2)))))
+
+  (testing "threading, higher-order fns, vectors"
+    (is (= [2 4] (pod.kpassapk.emacs/clj!
+                  (->> [1 2 3 4] (filter odd?) (mapv inc))))))
+
+  (testing "#() literals compile (rewritten fn* -> fn by the macro)"
+    (is (= [2 4 6] (pod.kpassapk.emacs/clj! (mapv #(* 2 %) [1 2 3])))))
+
+  (testing "multiple forms; last value returned"
+    (is (= 3 (pod.kpassapk.emacs/clj! (def clj-test-x 1) (+ clj-test-x 2))))))
+
+(deftest clj-interpolation-test
+  (testing "~ interpolates a babashka value"
+    (let [n 40]
+      (is (= 42 (pod.kpassapk.emacs/clj! (+ ~n 2))))))
+
+  (testing "~ interpolates strings and collections"
+    (let [s "hi" v [1 2 3]]
+      (is (= "HI" (pod.kpassapk.emacs/clj! (el/upcase ~s))))
+      (is (= 3 (pod.kpassapk.emacs/clj! (count ~v))))))
+
+  (testing "~@ splices a collection into a call"
+    (let [xs [1 2 3]]
+      (is (= 6 (pod.kpassapk.emacs/clj! (+ ~@xs))))))
+
+  (testing "~ inside nested vectors and maps"
+    (let [v 9]
+      (is (= [1 9] (pod.kpassapk.emacs/clj! [1 ~v])))
+      (is (= 9 (pod.kpassapk.emacs/clj! (get {:a ~v} :a)))))))
+
+(deftest clj-session-test
+  (testing "defn persists across clj! calls for the pod session"
+    (pod.kpassapk.emacs/clj! (defn clj-test-double [x] (* 2 x)))
+    (is (= 42 (pod.kpassapk.emacs/clj! (clj-test-double 21))))))
+
+(deftest clj-interop-test
+  (testing "el/ calls Emacs Lisp directly"
+    (is (= "HELLO" (pod.kpassapk.emacs/clj! (el/upcase "hello"))))
+    (is (string? (pod.kpassapk.emacs/clj! (el/emacs-version)))))
+
+  (testing "maps round-trip: cljbang hash-table out, EDN map back"
+    (is (= {:a 1 :b [1 2]} (pod.kpassapk.emacs/clj! {:a 1 :b [1 2]})))))
+
+(deftest clj-error-test
+  (testing "an undefined elisp function throws through the pod"
+    (let [e (try (pod.kpassapk.emacs/clj! (el/no-such-fn-xyz))
+                 (catch Exception e e))]
+      (is (some? e)))))
+
+(deftest eval-clj-string-test
+  (testing "eval-clj also accepts a raw Clojure source string"
+    (is (= 6 ((resolve 'pod.kpassapk.emacs/eval-clj)
+              "(reduce + 0 [1 2 3])")))))
 
 ;;;; ------------------------------------------------------------- funcall
 

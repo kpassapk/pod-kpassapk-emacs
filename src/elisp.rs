@@ -15,6 +15,7 @@ const RESOURCES: &[(&str, &str)] = &[
     ("pod-emacs-project.el", include_str!("../resources/pod-emacs-project.el")),
     ("pod-emacs-devops.el", include_str!("../resources/pod-emacs-devops.el")),
     ("pod-emacs-org-roam.el", include_str!("../resources/pod-emacs-org-roam.el")),
+    ("pod-emacs-ob-babashka.el", include_str!("../resources/pod-emacs-ob-babashka.el")),
 ];
 
 const VENDOR: &[(&str, &str)] = &[
@@ -26,6 +27,9 @@ const VENDOR: &[(&str, &str)] = &[
     ("parseclj-lex.el", include_str!("../vendor/parseclj-lex.el")),
     ("parseclj-parser.el", include_str!("../vendor/parseclj-parser.el")),
     ("parseedn.el", include_str!("../vendor/parseedn.el")),
+    ("cljbang.el", include_str!("../vendor/cljbang.el")),
+    ("cljbang-core.el", include_str!("../vendor/cljbang-core.el")),
+    ("cljbang-string.el", include_str!("../vendor/cljbang-string.el")),
 ];
 
 fn is_elisp_root(dir: &Path) -> bool {

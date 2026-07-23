@@ -3,7 +3,7 @@
 ![Status](https://img.shields.io/badge/status-alpha-blue)
 [![bb compatible](https://raw.githubusercontent.com/babashka/babashka/master/logo/badge.svg)](https://book.babashka.org#badges)
 
-A [babashka pod](https://github.com/babashka/pods) that exposes Emacs to babashka scripts. It's crazy but works [pretty well](./examples/).
+A [babashka pod](https://github.com/babashka/pods) that exposes Emacs to babashka scripts.
 
 ## But why?
 
@@ -21,6 +21,7 @@ This project bundles in these excellent elisp libraries:
 - [parseedn](https://github.com/clojure-emacs/parseedn)
 - [parseclj](https://github.com/clojure-emacs/parseclj)
 - [emacs-bencode](https://github.com/skeeto/emacs-bencode)
+- [cljbang.el](https://github.com/borkdude/cljbang.el) — powers the `clj!` macro
 
 It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) to expose emacs packages as Clojure namepsaces:
 
@@ -35,19 +36,83 @@ It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) 
 - [org roam](https://github.com/org-roam/org-roam)
 - [devops.el](https://github.com/kpassapk/devops.el)
 
-## Usage
+## Quickstart
 
-```
+Load the pod by local path and call it:
+
+```clojure
 (require '[babashka.pods :as pods])
 
 (pods/load-pod 'kpassapk/emacs "0.3.1")
 
-(require '[pod.kpassapk.emacs :as emacs])
+(require '[pod.kpassapk.emacs :as emacs]
+         '[pod.kpassapk.emacs.org :as org])
 
-(prn (emacs/eval "(+ 1 1)"))
+;; Write Clojure, run it inside Emacs (via cljbang), get EDN back:
+(emacs/clj! (+ 1 2))                        ;=> 3
+(emacs/clj! (el/upcase "hi"))               ;=> "HI"
+(emacs/clj! (->> (el/buffer-list)
+                 (mapv el/buffer-name)))    ;=> ["*scratch*" ...]
+
+;; Or evaluate raw Emacs Lisp strings:
+(emacs/eval "(+ 1 2)")            ;=> 3
+(emacs/eval "(upcase \"hi\")")    ;=> "HI"
+
+;; Read an org file
+(org/outline "examples/sample.org")
+;;=>
+;; {:file "/abs/path/to/examples/sample.org"
+;;  :title "Project Roadmap"
+;;  :children [{:level 1 :title "Planning" :begin 42
+;;              :children [{:level 2 :title "Define scope" :todo "TODO"
+;;                          :priority "A" :tags ["urgent" "planning"]
+;;                          :scheduled "<2026-06-25 Thu>"
+;;                          :properties {:EFFORT "2h" :CUSTOM_ID "scope"}
+;;                          :begin 87
+;;                          :children [...]}
+;;                         ...]}
+;;             ...]}
 ```
 
 See [examples](./examples/) for more.
+
+### The clj! macro
+
+`emacs/clj!` is the main way to talk to Emacs: write Clojure, not stringified
+elisp. Its body is captured as forms, sent to the Emacs child, and compiled to
+Emacs Lisp there by [cljbang.el](https://github.com/borkdude/cljbang.el) — no
+transpiled text, no subprocess on the Emacs side. The last form's value comes
+back as EDN.
+
+```clojure
+;; el/<name> calls any Emacs Lisp function or variable:
+(emacs/clj! (el/find-file "~/notes.org")
+            (el/buffer-size))
+
+;; ~x interpolates a babashka value; ~@xs splices a collection:
+(let [path "/tmp/notes.org"
+      nums [1 2 3]]
+  (emacs/clj! (el/find-file ~path))
+  (emacs/clj! (+ ~@nums)))          ;=> 6
+
+;; Definitions persist for the pod session: defn helpers once, call later.
+(emacs/clj! (defn stale-buffers []
+              (->> (el/buffer-list)
+                   (filter (fn [b] (let [f (el/buffer-file-name b)]
+                                     (and f (not (el/file-exists-p f))))))
+                   (mapv el/buffer-name))))
+(emacs/clj! (stale-buffers))
+```
+
+The body is [cljbang's Clojure dialect](https://github.com/borkdude/cljbang.el):
+most of the sequence library, destructuring, threading macros, and `#(...)`
+literals work; inside Emacs, maps are hash tables and there are no lazy seqs.
+Some arities differ (e.g. `reduce` needs an init value). See the cljbang docs
+for the details. Errors thrown in Emacs surface as `ex-info` on the babashka
+side, same as `emacs/eval` ([Errors](#errors)).
+
+For raw source strings there is also `(emacs/eval-clj "(reduce + 0 [1 2 3])")`,
+and `emacs/eval` still evaluates plain Emacs Lisp.
 
 ### Loading elisp
 
@@ -75,37 +140,6 @@ cargo build --release   # -> target/release/pod-kpassapk-emacs
 ```
 
 See the [ADRs](doc/adr) for more on what the pod executable does.
-
-## Quickstart
-
-Load the pod by local path and call it:
-
-```clojure
-(require '[babashka.pods :as pods])
-(pods/load-pod ["target/release/pod-kpassapk-emacs"])
-
-(require '[pod.kpassapk.emacs :as emacs]
-         '[pod.kpassapk.emacs.org :as org])
-
-;; Evaluate Emacs Lisp, get EDN back:
-(emacs/eval "(+ 1 2)")            ;=> 3
-(emacs/eval "(upcase \"hi\")")    ;=> "HI"
-
-;; Read an org file
-(org/outline "examples/sample.org")
-;;=>
-;; {:file "/abs/path/to/examples/sample.org"
-;;  :title "Project Roadmap"
-;;  :children [{:level 1 :title "Planning" :begin 42
-;;              :children [{:level 2 :title "Define scope" :todo "TODO"
-;;                          :priority "A" :tags ["urgent" "planning"]
-;;                          :scheduled "<2026-06-25 Thu>"
-;;                          :properties {:EFFORT "2h" :CUSTOM_ID "scope"}
-;;                          :begin 87
-;;                          :children [...]}
-;;                         ...]}
-;;             ...]}
-```
 
 See [examples](examples/README.md).
 
