@@ -30,9 +30,14 @@
 | plist / list                  | list      |
 | vector                        | vector    |
 | keyword                       | keyword   |
+| cljbang set                   | set       |
 | `t`                           | `true`    |
 | `nil`                         | `nil`     |
 | non-serializable (buffer, fn) | string repr |
+
+A non-serializable value is stringified *where it stands*, so the rest of the
+reply is still data — `{:ok 1 :buf (el/current-buffer)}` comes back as a map
+with a string under `:buf`, not as one long string.
 
 ## `pod.kpassapk.emacs.org`
 

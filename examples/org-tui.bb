@@ -4,9 +4,13 @@
 ;;   bb examples/org-runme.clj [path/to/runbook.org]
 ;;
 ;; Blocks are run *off the UI thread* by wrapping the ordinary synchronous
-;; `org/execute' var in a `future'.  Pod invokes are id-routed, so the call
+;; `org/execute!' call in a `future'.  Pod invokes are id-routed, so the call
 ;; doesn't block the reader; we poll the future and animate a spinner while a
 ;; slow step (say `sleep 8`) runs, instead of freezing the whole UI.
+;;
+;; The org file is read and run by cljbang-org, an ordinary Emacs package
+;; called through `emacs/clj!' — no pod namespace in front of it.  A run leaves
+;; its results in Emacs' buffer and nothing on disk until you press `s'.
 
 (require '[babashka.pods :as pods]
          '[clojure.java.io :as io]
@@ -21,15 +25,45 @@
                   (.getPath (io/file here "runbook.org"))))
 
 (pods/load-pod [pod])
-(require '[pod.kpassapk.emacs.org :as org])
+(require '[pod.kpassapk.emacs :as emacs])
 
-(defn block-label [b]
-  (or (:name b) (format "«block %d»" (:index b))))
+;; Install cljbang-org on first run, the way the pod installs its own
+;; third-party elisp, and load it.
+(emacs/clj!
+ (el/require 'package)
+ (el/package-initialize)
+ (when-not (el/locate-library "cljbang-org")
+   (el/package-vc-install "https://github.com/kpassapk/cljbang-org"))
+ (el/require 'cljbang-org))
 
-(defn block-selector
-  "How org/execute should address this block: by :name if it has one, else :index."
+;; Defined once inside Emacs; definitions persist for the pod session.
+;; A src block and a `#+call:' line are both steps a runbook can run, and they
+;; share one :index, so merging the two readers gives the file's steps in order.
+(emacs/clj!
+ (require '[cljbang.org :as-alias org])
+
+ (defn runnable [file]
+   (->> (concat (org/src-blocks file) (org/call-blocks file))
+        (sort-by :index)
+        vec)))
+
+(defn block-label
+  "A block's `#+name:', else a call line verbatim — `exists(path=\"bb.edn\")'
+  says more than the name of the block it invokes, which a src block row
+  above is already using."
   [b]
-  (if (:name b) {:name (:name b)} {:index (:index b)}))
+  (or (:name b) (:value b) (format "«block %d»" (:index b))))
+
+(defn block-kind
+  "What to show in the type column; a call line has no language of its own."
+  [b]
+  (or (:language b) "call"))
+
+(defn selector
+  "A block map is already a selector — its :name wins, its :index is the
+  fallback — so this only trims it to the two keys that need to travel."
+  [b]
+  (select-keys b [:name :index]))
 
 ;;;; ---------------------------------------------------------- terminal drawing
 
@@ -43,11 +77,11 @@
   [blocks idx]
   (str (clear) (hide-cursor)
        "Runbook: " org-file "\r\n"
-       "Pick a src block to run.  ↑/↓ or j/k to move, Enter to run, q to quit.\r\n\r\n"
+       "Pick a step to run.  ↑/↓ or j/k to move, Enter to run, s to save, q to quit.\r\n\r\n"
        (str/join "\r\n"
                  (map-indexed
                   (fn [i b]
-                    (let [row (format "%-16s [%s]" (block-label b) (:lang b))]
+                    (let [row (format "%-16s [%s]" (block-label b) (block-kind b))]
                       (if (= i idx)
                         (str ESC "[7m> " row ESC "[0m")   ; reverse-video cursor row
                         (str "  " row))))
@@ -75,13 +109,15 @@
 
 (defn run-block!
   "Run B through the pod on a background thread and show the result.
-  `org/execute' is synchronous, so we wrap it in a `future' and poll: the pod
+  `org/execute!' is synchronous, so we wrap it in a `future' and poll: the pod
   reply is id-routed, so the call returns without blocking the UI thread and we
-  can animate a spinner while Emacs works.  Errors come back tagged, not thrown."
+  can animate a spinner while Emacs works.  Errors come back tagged, not thrown
+  — including a block that exits non-zero, which carries its exit code."
   [terminal b]
   (let [w      (.writer terminal)
         label  (block-label b)
-        result (future (try [:ok (org/execute org-file (block-selector b))]
+        sel    (selector b)
+        result (future (try [:ok (emacs/clj! (cljbang.org/execute! ~org-file ~sel))]
                             (catch Exception e [:err (ex-message e)])))]
     (loop [i 0]
       (if-not (realized? result)
@@ -97,9 +133,20 @@
                          (if (= status :ok)
                            (str "=> " (pr-str val))
                            (str "ERROR: " val))
+                         "\r\n\r\n(the #+RESULTS: are in Emacs' buffer; s saves them)"
                          "\r\n\r\nPress any key to return …"))
           (.flush w)
           (read-key (.reader terminal)))))))
+
+(defn save!
+  "Write what the runs left in Emacs' buffer out to the org file."
+  [terminal]
+  (let [w (.writer terminal)]
+    (.print w (str (clear) (show-cursor)
+                   "Saved " (emacs/clj! (cljbang.org/save! ~org-file))
+                   "\r\n\r\nPress any key to return …"))
+    (.flush w)
+    (read-key (.reader terminal))))
 
 (defn tui [terminal blocks]
   (let [reader (.reader terminal)
@@ -112,6 +159,7 @@
         (:up   \k) (recur (mod (dec idx) n))
         (:down \j) (recur (mod (inc idx) n))
         :enter     (do (run-block! terminal (nth blocks idx)) (recur idx))
+        \s         (do (save! terminal) (recur idx))
         (\q :quit) :done
         (recur idx)))))
 
@@ -122,20 +170,22 @@
   [blocks]
   (println "Runbook:" org-file)
   (doseq [[i b] (map-indexed vector blocks)]
-    (println (format "  %d) %-16s [%s]" i (block-label b) (:lang b))))
+    (println (format "  %d) %-16s [%s]" i (block-label b) (block-kind b))))
   (print "Select block number (q to quit): ") (flush)
   (let [in (str/trim (or (read-line) ""))]
     (when-not (#{"q" ""} in)
       (if-let [b (get blocks (parse-long in))]
-        (println "=>" (pr-str (org/execute org-file (block-selector b))))
+        (let [sel (selector b)]
+          (println "=>" (pr-str (emacs/clj! (cljbang.org/execute! ~org-file ~sel))))
+          (println "(the #+RESULTS: are in Emacs' buffer, not on disk)"))
         (println "No such block:" in)))))
 
 ;;;; ---------------------------------------------------------------------- main
 
-(let [blocks   (vec (org/src-blocks org-file))
+(let [blocks   (emacs/clj! (runnable ~org-file))
       terminal (-> (TerminalBuilder/builder) (.system true) (.build))]
   (cond
-    (empty? blocks)               (println "No src blocks in" org-file)
+    (empty? blocks)               (println "No runnable blocks in" org-file)
     (= "dumb" (.getType terminal)) (do (fallback blocks) (.close terminal))
     :else
     (try

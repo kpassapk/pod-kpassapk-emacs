@@ -17,7 +17,16 @@ sleep 2 && echo "your build is ready!"
 printf '%s' "artifact-1.0.0.tgz" | wc -c | tr -d ' '
 #+end_src
 
+#+name: exists
+#+begin_src sh :var path="README.md"
+test -e "$path" && echo "present: $path" || echo "missing: $path"
+#+end_src
+
+A =#+call:= line runs a block named elsewhere, so it is a step of its own.
+
+#+call: exists(path="sample.org")
+
 #+name: summary
 #+begin_src emacs-lisp
-(format "%d steps wired" 4)
+(format "%d steps wired" 6)
 #+end_src

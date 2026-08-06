@@ -4,7 +4,8 @@
 bb org-portal.bb
 ```
 
-Turn org mode documents into Clojure data structures
+Turn org mode documents into Clojure data structures, read through
+[cljbang-org](https://github.com/kpassapk/cljbang-org) via `clj!`.
 
 ![org-portal](images/org-portal.gif)
 
@@ -24,7 +25,8 @@ An editor (!)
 
 ![editor](images/editor.gif)
 
-run org-mode source code blocks from bb
+Run org-mode source blocks and `#+call:` lines from bb, through
+[cljbang-org](https://github.com/kpassapk/cljbang-org).
 
 ```
 bb org-tui.bb

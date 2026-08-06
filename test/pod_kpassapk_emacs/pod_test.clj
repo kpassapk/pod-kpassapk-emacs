@@ -236,6 +236,18 @@
   (testing "maps round-trip: cljbang hash-table out, EDN map back"
     (is (= {:a 1 :b [1 2]} (pod.kpassapk.emacs/clj! {:a 1 :b [1 2]})))))
 
+(deftest clj-set-encoding-test
+  (testing "a cljbang set comes back as a set, nested or not"
+    (is (= #{"a" "b"} (pod.kpassapk.emacs/clj! #{"a" "b"})))
+    (is (= {:tags #{"dev"}} (pod.kpassapk.emacs/clj! {:tags #{"dev"}}))))
+
+  (testing "a value the EDN printer refuses is stringified where it stands,
+            not by turning the whole reply into one string"
+    (let [m (pod.kpassapk.emacs/clj! {:ok 1 :buf (el/current-buffer)})]
+      (is (map? m))
+      (is (= 1 (:ok m)))
+      (is (string? (:buf m))))))
+
 (deftest clj-error-test
   (testing "an undefined elisp function throws through the pod"
     (let [e (try (pod.kpassapk.emacs/clj! (el/no-such-fn-xyz))
