@@ -28,9 +28,9 @@
 (require '[pod.kpassapk.emacs :as emacs])
 
 ;; Install cljbang-org into the batch Emacs on first run, and load it.  The
-;; argument is an ordinary `use-package' declaration, so any package
-;; use-package can install is reachable without rebuilding the pod.
-(emacs/install! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
+;; argument is an ordinary `use-package' declaration — `:vc' is what fetches —
+;; so any package use-package can reach is reachable without rebuilding the pod.
+(emacs/use-package! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
 
 ;; Defined once inside Emacs; definitions persist for the pod session.
 ;; A src block and a `#+call:' line are both steps a runbook can run, and they

@@ -17,12 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for raw Clojure source strings.
 - Client-side var registry (`pod-emacs-register-client`): any namespace can
   ship Clojure code to the babashka client through the pod protocol.
-- `install!` — install and load an Emacs package from a `use-package`
-  declaration (`:ensure`, `:vc`, `:after`, `:config` all behave as in an init
-  file); a bare symbol just loads a built-in. Synchronous, idempotent, returns
-  the package name, and throws if the package did not end up installed.
-  Together with `clj!` this replaces the pod's own library table: any package
-  use-package can install is reachable without a pod release.
+- `use-package!` — run a `use-package` declaration in the batch Emacs
+  (`:ensure`, `:vc`, `:after`, `:config` all behave as in an init file); a bare
+  symbol just loads a built-in. Named for the declaration it takes, because
+  that is the part a caller has to get right and fetching is one keyword of it,
+  not the default. Synchronous, idempotent, returns the package name, and
+  throws — naming the keyword that would have fetched it — if the package is
+  not there afterwards. Together with `clj!` this replaces the pod's own
+  library table: any package use-package can reach is reachable without a pod
+  release.
 
 ### Changed
 
@@ -60,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the deferred-namespace mechanism behind them (the `defer` stubs in the
   describe reply and the `load-ns` op). They were thin data-in/data-out
   wrappers whose only other job was installing a package on first `require`;
-  `clj!` subsumes the wrapping and `install!` the installing. Call the elisp
+  `clj!` subsumes the wrapping and `use-package!` the installing. Call the elisp
   directly via `el/`, and for org-mode use
   [cljbang-org](https://github.com/kpassapk/cljbang-org) — see
   `doc/packages.md` ("Calling elisp: use `clj!`") and the reworked

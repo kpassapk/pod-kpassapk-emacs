@@ -39,7 +39,7 @@
 (defn- ev [code]      ((resolve 'pod.kpassapk.emacs/eval) code))
 (defn- funcall [& as] (apply (resolve 'pod.kpassapk.emacs/funcall) as))
 (defn- version []     ((resolve 'pod.kpassapk.emacs/version)))
-(defn- install! [d]   ((resolve 'pod.kpassapk.emacs/install!) d))
+(defn- use-package! [d] ((resolve 'pod.kpassapk.emacs/use-package!) d))
 
 ;;;; ------------------------------------------------------------- describe / version
 
@@ -51,32 +51,34 @@
       (is (pos? (:major-version v)))
       (is (string? (:emacs-version v))))))
 
-;;;; ------------------------------------------------------------- install!
+;;;; ------------------------------------------------------------- use-package!
 
 ;; These use packages that ship with Emacs, so the suite stays offline: no
 ;; archive is contacted for a declaration that needs neither `:ensure' nor
 ;; `:vc'. What is under test is the use-package plumbing and the
-;; did-it-actually-install post-condition, not the download.
+;; is-it-actually-there post-condition, not the download.
 
-(deftest install-test
+(deftest use-package-test
   (testing "a bare symbol loads the package and returns its name"
-    (is (= "subr-x" (install! 'subr-x)))
+    (is (= "subr-x" (use-package! 'subr-x)))
     (is (= true (ev "(featurep 'subr-x)"))))
 
   (testing "a declaration with keywords is evaluated as use-package"
-    (is (= "calc" (install! '(calc :config (setq calc-test-marker 1)))))
+    (is (= "calc" (use-package! '(calc :config (setq calc-test-marker 1)))))
     (is (= 1 (ev "calc-test-marker")) ":config ran"))
 
-  (testing "install! is idempotent"
-    (is (= "subr-x" (install! 'subr-x))))
+  (testing "use-package! is idempotent"
+    (is (= "subr-x" (use-package! 'subr-x))))
 
-  (testing "a package that does not install throws, naming the package"
-    (let [e (try (install! 'no-such-package-xyz) (catch Exception e e))]
+  (testing "an unavailable package throws, naming it and how to fetch it"
+    (let [e (try (use-package! 'no-such-package-xyz) (catch Exception e e))]
       (is (some? e))
-      (is (re-find #"no-such-package-xyz" (ex-message e)))))
+      (is (re-find #"no-such-package-xyz" (ex-message e)))
+      (is (re-find #":ensure" (ex-message e))
+          "the hint points at the keyword that would have fetched it")))
 
   (testing "a missing declaration throws"
-    (let [e (try (install! nil) (catch Exception e e))]
+    (let [e (try (use-package! nil) (catch Exception e e))]
       (is (some? e))
       (is (re-find #"missing package declaration" (ex-message e))))))
 

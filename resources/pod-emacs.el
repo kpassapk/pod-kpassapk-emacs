@@ -45,9 +45,9 @@
 ;; the dependency runs one way (modules require core).
 ;;
 ;; Third-party elisp is deliberately *not* registered here.  The pod ships no
-;; library table: a script installs the package it wants with `install!' (see
-;; below) and calls it through `clj!', so adding a library never means forking
-;; and rebuilding the pod binary.
+;; library table: a script declares the package it wants with `use-package!'
+;; (see below) and calls it through `clj!', so adding a library never means
+;; forking and rebuilding the pod binary.
 
 (defvar pod-emacs--namespaces nil
   "Registered namespaces, an alist (NS-NAME . VARS).
@@ -102,18 +102,19 @@ the pod registers no third-party libraries of its own."
 
 ;;;; ---------------------------------------------------------------- packages
 
-(defun pod-emacs--install (decl)
-  "Install and load an Emacs package; return its name as a string.
-DECL is a `use-package' declaration whose head is the package symbol, so its
-keywords are use-package's: `:ensure t' pulls the package from an archive,
-`:vc (:url URL)' from git, and `:after'/`:config' shape the load.  A bare
-symbol means \"just load it\", which is all a built-in needs.
+(defun pod-emacs--use-package (decl)
+  "Run the `use-package' declaration DECL; return the package name as a string.
+DECL's head is the package symbol and the rest are use-package's own keywords,
+so `:ensure t' pulls the package from an archive, `:vc (:url URL)' from git,
+and `:after'/`:config' shape the load.  A bare symbol means \"just load it\",
+which is all a built-in needs — installing is what `:ensure'/`:vc' ask for,
+here exactly as in an init file.
 
 This is how a script gets elisp into the batch Emacs — the pod carries no
-package registry, so anything installable by use-package is reachable without
+package registry, so anything reachable by use-package is reachable without
 rebuilding the pod.  The call is synchronous: it returns with the package
-installed, or signals."
-  (unless decl (error "install!: missing package declaration"))
+present, or signals."
+  (unless decl (error "use-package!: missing package declaration"))
   (let* ((decl (if (listp decl) decl (list decl)))
          (name (symbol-name (car decl))))
     (require 'package)
@@ -129,9 +130,13 @@ installed, or signals."
     (eval `(use-package ,@decl) t)
     ;; use-package is quiet when a package is missing and quiet again when
     ;; `:after'/`:defer' postponed the load, so the post-condition to check is
-    ;; "installed", not "loaded".
+    ;; "on the load path", not "loaded".  A bare symbol that names no built-in
+    ;; lands here, hence the hint: use-package only fetches when asked to.
     (unless (locate-library name)
-      (error "install!: package %s did not install" name))
+      (error "use-package!: package %s is not available%s" name
+             (if (memq :ensure decl) ""
+               " (add `:ensure t' to install it from an archive, or\
+ `:vc (:url URL)' from git)")))
     name))
 
 ;;;; ---------------------------------------------------------------- eval
@@ -170,14 +175,14 @@ Definitions persist for the life of the emacs child, so one call can
 ;; Core's own namespace, registered like any feature module.
 (pod-emacs-register
  "pod.kpassapk.emacs"
- `(("eval"      . ,#'pod-emacs--eval-string)
-   ("eval-clj"  . ,#'pod-emacs--eval-clj)
-   ("eval-file" . ,(lambda (path)
-                     (load (expand-file-name path) nil t t)
-                     (file-name-nondirectory path)))
-   ("funcall"   . ,#'pod-emacs--funcall)
-   ("install!"  . ,#'pod-emacs--install)
-   ("version"   . ,#'pod-emacs--version)))
+ `(("eval"         . ,#'pod-emacs--eval-string)
+   ("eval-clj"     . ,#'pod-emacs--eval-clj)
+   ("eval-file"    . ,(lambda (path)
+                        (load (expand-file-name path) nil t t)
+                        (file-name-nondirectory path)))
+   ("funcall"      . ,#'pod-emacs--funcall)
+   ("use-package!" . ,#'pod-emacs--use-package)
+   ("version"      . ,#'pod-emacs--version)))
 
 ;; The `clj!' macro runs on the babashka side: it captures its body as forms,
 ;; resolves ~/~@ interpolations, pr-strs the result and sends it to `eval-clj'
@@ -318,7 +323,8 @@ buffers."
 
 (defun pod-emacs-main ()
   "Run the pod protocol loop over base64-framed stdin/stdout.
-Only core is loaded at startup; packages a script needs arrive via `install!'."
+Only core is loaded at startup; packages a script needs arrive via
+`use-package!'."
   (set-binary-mode 'stdin t)
   (let ((buf (get-buffer-create pod-emacs--in-buffer-name))
         ;; stdout is the protocol channel: anything user elisp writes there

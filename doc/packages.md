@@ -9,7 +9,7 @@
 | `eval-clj`  | `[code]`           | the value of the last form, as EDN   | Like `clj!` but takes Clojure source as a string. |
 | `eval-file` | `[path]`           | the file's base name (string)        | `load`s an `.el` file into the (warm) Emacs process. Useful for defining helpers you then call via `funcall`. |
 | `funcall`   | `[fn & args]`      | the function's return value, as EDN  | Calls the named elisp function `fn` (string or symbol) with `args`. The args are marshalled from EDN to elisp values, so you pass *data*, not string-spliced code — no `(str "(" ... ")")`. Pairs with `eval-file`: load helpers, then call them with real arguments. |
-| `install!`  | `[decl]`           | the package name (string)            | Installs and loads an Emacs package. `decl` is a `use-package` declaration, or a bare symbol for a built-in. See [Installing packages](#installing-packages). |
+| `use-package!` | `[decl]`        | the package name (string)            | Runs a `use-package` declaration in the batch Emacs — `decl` is that declaration, or a bare symbol for a built-in. Installs when the declaration says to (`:ensure`, `:vc`). See [Declaring packages](#declaring-packages). |
 | `version`   | `[]`               | map                                  | `{:emacs-version "31.0.50" :major-version 31 :exec "/path/to/emacs"}`. |
 
 ```clojure
@@ -49,37 +49,42 @@ A non-serializable value is stringified *where it stands*, so the rest of the
 reply is still data — `{:ok 1 :buf (el/current-buffer)}` comes back as a map
 with a string under `:buf`, not as one long string.
 
-## Installing packages
+## Declaring packages
 
-`install!` runs a [use-package](https://www.gnu.org/software/emacs/manual/html_mono/use-package.html)
+`use-package!` runs a [use-package](https://www.gnu.org/software/emacs/manual/html_mono/use-package.html)
 declaration in the batch Emacs. The head of the declaration is the package
 symbol; the rest are use-package's own keywords, so `:ensure`, `:vc`, `:after`
 and `:config` behave exactly as they do in an init file. A bare symbol means
 "just load it", which is all a built-in needs.
 
+Fetching follows the same rule: use-package installs when the declaration asks
+it to, so a third-party package needs `:ensure t` (from an archive) or `:vc`
+(from git). A bare symbol naming a package Emacs does not have throws rather
+than downloading anything.
+
 ```clojure
-(emacs/install! 'calc)                     ;=> "calc"     ; built-in
-(emacs/install! '(org-roam :ensure t))     ;=> "org-roam" ; from an ELPA archive
-(emacs/install! '(cljbang-org
-                  :vc (:url "https://github.com/kpassapk/cljbang-org")))
+(emacs/use-package! 'calc)                     ;=> "calc"     ; built-in
+(emacs/use-package! '(org-roam :ensure t))     ;=> "org-roam" ; from an ELPA archive
+(emacs/use-package! '(cljbang-org
+                      :vc (:url "https://github.com/kpassapk/cljbang-org")))
 ;;=> "cljbang-org"
 
-;; keywords are use-package's, so setup travels with the install:
-(emacs/install! '(ob-babashka
-                  :ensure t
-                  :after org
-                  :vc (:url "https://github.com/kpassapk/ob-babashka")
-                  :config (add-to-list 'org-babel-load-languages '(babashka . t))))
+;; keywords are use-package's, so setup travels with the declaration:
+(emacs/use-package! '(ob-babashka
+                      :ensure t
+                      :after org
+                      :vc (:url "https://github.com/kpassapk/ob-babashka")
+                      :config (add-to-list 'org-babel-load-languages '(babashka . t))))
 ```
 
 The call is synchronous and idempotent, and returns the package name. It throws
-if the package did not end up installed — use-package is quiet about a missing
-package, so `install!` checks afterwards rather than trusting it. With
+if the package is not on the load path afterwards — use-package is quiet about
+a missing package, so `use-package!` checks rather than trusting it. With
 `:ensure`, the archive lists are refreshed once if they are empty, so a first
 call on a fresh Emacs does not fail with "package is unavailable".
 
-The pod ships no package registry of its own: whatever use-package can install
-is reachable, and a new library never needs a pod release.
+The pod ships no package registry of its own: whatever use-package can reach is
+reachable, and a new library never needs a pod release.
 
 ## Calling elisp: use `clj!`
 
@@ -103,7 +108,7 @@ of this.
 (emacs/clj! (vec (el/project-files (el/project-current nil "."))))
 
 ;; org-mode, through cljbang-org: flat heading maps, src blocks, execution:
-(emacs/install! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
+(emacs/use-package! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
 (emacs/clj!
  (require '[cljbang.org :as-alias org])
  (mapv :name (org/src-blocks "examples/runbook.org")))

@@ -31,8 +31,8 @@ itself as one Clojure namespace, `pod.kpassapk.emacs`:
 
 - `clj!` writes Clojure and runs it inside Emacs, so any elisp — org-mode, Calc,
   project.el, a package of your own — is callable without a wrapper namespace.
-- `install!` takes a `use-package` declaration and installs the package into the
-  batch Emacs, so a script reaches third-party elisp without rebuilding the pod.
+- `use-package!` takes a `use-package` declaration and runs it in the batch
+  Emacs, so a script reaches third-party elisp without rebuilding the pod.
 
 Earlier versions shipped a table of per-library namespaces
 (`pod.kpassapk.emacs.org`, `…org-roam`, …). Those two vars subsume it; see
@@ -61,7 +61,7 @@ Load the pod by local path and call it:
 
 ;; Pull in an Emacs package, then call it like any other elisp. Here
 ;; cljbang-org reads an org file as data:
-(emacs/install! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
+(emacs/use-package! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
 
 (emacs/clj!
  (require '[cljbang.org :as-alias org])
@@ -120,29 +120,31 @@ and `emacs/eval` still evaluates plain Emacs Lisp.
 
 ### Loading elisp
 
-The pod carries no library of its own. `emacs/install!` takes a
+The pod carries no library of its own. `emacs/use-package!` takes a
 [use-package](https://www.gnu.org/software/emacs/manual/html_mono/use-package.html)
-declaration and runs it in the batch Emacs, so anything use-package can install
+declaration and runs it in the batch Emacs, so anything use-package can reach
 is one call away — a built-in that only needs loading, a package from an ELPA
 archive, or one from git:
 
 ```clojure
-(emacs/install! 'calc)                     ; built-in: just load it
-(emacs/install! '(org-roam :ensure t))     ; from an ELPA archive
-(emacs/install! '(cljbang-org
-                  :vc (:url "https://github.com/kpassapk/cljbang-org")))
+(emacs/use-package! 'calc)                     ; built-in: just load it
+(emacs/use-package! '(org-roam :ensure t))     ; from an ELPA archive
+(emacs/use-package! '(cljbang-org
+                      :vc (:url "https://github.com/kpassapk/cljbang-org")))
 ```
 
 The head of the declaration is the package symbol and the rest are
-use-package's own keywords, so `:config`, `:after` and friends work as usual.
-The call is synchronous and idempotent: it returns with the package installed,
-or throws. After that the package is ordinary elisp — call it with `clj!`.
+use-package's own keywords, so `:config`, `:after` and friends work as usual —
+including the two that fetch. A bare symbol only loads, so a third-party
+package needs `:ensure t` (archive) or `:vc` (git), exactly as in an init file.
+The call is synchronous and idempotent: it returns with the package present, or
+throws. After that the package is ordinary elisp — call it with `clj!`.
 
 This replaces the deferred namespaces earlier versions shipped
 (`pod.kpassapk.emacs.org-roam` and the like), where requiring a namespace
 installed its package and gave you a handful of pod-side wrapper vars. `clj!`
-made the wrappers unnecessary and `install!` covers the installing, so adding a
-library no longer means forking and rebuilding the pod.
+made the wrappers unnecessary and `use-package!` covers the installing, so
+adding a library no longer means forking and rebuilding the pod.
 
 ## Requirements
 
@@ -166,7 +168,7 @@ See [examples](examples/README.md).
 See [doc/packages.md](doc/packages.md) for the vars the pod exposes.
 
 There is nothing to register: an Emacs package becomes usable from Clojure by
-installing it with `emacs/install!` and calling it with `emacs/clj!` — see
+declaring it with `emacs/use-package!` and calling it with `emacs/clj!` — see
 [Loading elisp](#loading-elisp). No pod fork, no rebuild.
 
 If a package needs elisp glue to be pleasant from Clojure, write the glue as an

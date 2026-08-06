@@ -82,11 +82,12 @@ One namespace, `pod.kpassapk.emacs`:
 - `eval` / `eval-clj` — eval an elisp (resp. Clojure) string, result as EDN.
 - `eval-file` — load an `.el` file in the Emacs process.
 - `funcall` — call a named elisp function with EDN-marshalled data args.
-- `install!` — install and load an Emacs package from a `use-package` declaration.
+- `use-package!` — run a `use-package` declaration: load an Emacs package,
+  installing it first when the declaration says to.
 - `version` — Emacs version info.
 
-Libraries do not get namespaces of their own: `install!` puts the package in the
-child and `clj!` calls it. Reading an org file, the flagship use case above, is
+Libraries do not get namespaces of their own: `use-package!` puts the package in
+the child and `clj!` calls it. Reading an org file, the flagship use case above, is
 [cljbang-org](https://github.com/kpassapk/cljbang-org) called through `clj!`.
 
 `format` is `edn`. elisp→EDN mapping: hash-table/alist/plist → map, vector →
