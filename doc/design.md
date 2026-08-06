@@ -17,7 +17,7 @@ scripts. You can:
 A babashka pod is a subprocess that speaks the pod protocol over **stdio** using
 **bencode** framing. The obvious design is "Emacs *is* the pod": run
 `emacs --batch` and have Emacs read bencode from stdin and write bencode to
-stdout, using the elisp `bencode` and `parseedn` libraries.
+stdout, using the elisp `bencode` library and an EDN reader/printer.
 
 That does not work, and we proved it empirically (see
 `docs/adr/0001-transport-architecture.md`). In `emacs --batch`:
@@ -60,15 +60,19 @@ real stream. Emacs `--batch` has no "read exactly N raw bytes" primitive.
   2. Pull complete messages with `bencode-decode-from-buffer` (handles partial
      messages spanning chunks — "needs more input" just loops back to step 1).
   3. Dispatch `describe` / `invoke` / `shutdown`.
-  4. For `invoke`, parse the EDN `args` with `parseedn-read-str`, run the var,
-     format the result with `parseedn-print-str`.
+  4. For `invoke`, parse the EDN `args` with `cljbang-edn-read-string`, run the
+     var, format the result with `pod-emacs--encode-edn`.
   5. `bencode-encode` the reply, base64-encode it, `princ` it as one line.
 
   Only base64 lines ever touch the child's stdout; warnings/messages go to
   stderr, so the protocol stream stays clean.
 
-This uses **both** referenced elisp libraries (`bencode`, `parseedn`) and keeps
-the protocol brain in elisp, where org-mode lives.
+This keeps the protocol brain in elisp, where org-mode lives.
+
+EDN is read by cljbang, which is here for `clj!` anyway, and printed by
+`resources/pod-emacs-util.el`. Both were parseedn's job until
+[ADR-0003](adr/03-edn-without-parseedn.md), which is where the reason a GPL
+library could not stay in an EPL-1.0 binary is written down.
 
 ## Pod surface (namespaces / vars)
 
@@ -85,9 +89,10 @@ Libraries do not get namespaces of their own: `install!` puts the package in the
 child and `clj!` calls it. Reading an org file, the flagship use case above, is
 [cljbang-org](https://github.com/kpassapk/cljbang-org) called through `clj!`.
 
-`format` is `edn`. elisp→EDN mapping (via parseedn, with a thin wrapper for
-predictability): plist/hash-table → map, vector → vector, list → list, keyword →
-keyword, t→true, nil→nil, non-serializable (buffers, functions) → string repr.
+`format` is `edn`. elisp→EDN mapping: hash-table/alist/plist → map, vector →
+vector, list → list, cljbang set → set, keyword → keyword, t→true, nil→nil,
+non-serializable (buffers, functions, dotted pairs) → string repr, in place, so
+one odd value costs that value and not the reply around it.
 
 ## Bundling Emacs ("works without Emacs installed")
 

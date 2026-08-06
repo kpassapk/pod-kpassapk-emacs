@@ -121,6 +121,26 @@
       ;; And the whole thing matches the expected shape.
       (is (= [1 [2 3] {:k "v"}] v)))))
 
+(deftest edn-value-mapping-test
+  (testing "elisp writes a map three ways and all three cross as maps"
+    (is (= {:a 1 :b 2} (ev "(list :a 1 :b 2)")) "plist")
+    (is (= {"a" 1 "b" 2} (ev "(list (cons \"a\" 1) (cons \"b\" 2))")) "alist")
+    (is (= {:a 1} (ev "(let ((h (make-hash-table))) (puthash :a 1 h) h)"))
+        "hash-table"))
+  (testing "a list that is neither shape stays a list"
+    ;; A plist needs a keyword in every key slot and an even length; an alist
+    ;; needs a cons with an atom car for every element.
+    (is (= '("a" 1) (ev "(list \"a\" 1)")))
+    (is (= '(:a 1 :b) (ev "(list :a 1 :b)")))
+    (is (= '(:a 1 "b" 2) (ev "(list :a 1 \"b\" 2)"))))
+  (testing "strings survive the characters EDN has to escape"
+    (is (= "a\"b\\c\nd\te\rf" (ev "\"a\\\"b\\\\c\nd\te\rf\""))))
+  (testing "a value EDN cannot carry is stringified where it stands"
+    (let [m (ev "(list :ok 1 :buf (current-buffer) :pair (cons 1 2))")]
+      (is (= 1 (:ok m)) "the reply around it is still data")
+      (is (string? (:buf m)))
+      (is (= "(1 . 2)" (:pair m)) "a dotted pair has no EDN form"))))
+
 (deftest eval-unicode-test
   (testing "unicode round-trips exactly"
     (is (= "héllo ✓ 日本" (ev "\"héllo ✓ 日本\"")))))

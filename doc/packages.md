@@ -25,18 +25,25 @@
 (emacs/funcall "my-report" {:env "prod"} [1 2 3])
 ```
 
-**elisp → EDN value mapping** (via `parseedn`):
+**elisp → EDN value mapping**:
 
-| elisp                         | EDN       |
-|-------------------------------|-----------|
-| hash-table                    | map       |
-| plist / list                  | list      |
-| vector                        | vector    |
-| keyword                       | keyword   |
-| cljbang set                   | set       |
-| `t`                           | `true`    |
-| `nil`                         | `nil`     |
-| non-serializable (buffer, fn) | string repr |
+| elisp                                    | EDN         |
+|------------------------------------------|-------------|
+| hash-table                               | map         |
+| alist — `(("a" . 1))`                    | map         |
+| plist — `(:a 1 :b 2)`                    | map         |
+| any other proper list                    | list        |
+| vector                                   | vector      |
+| keyword                                  | keyword     |
+| cljbang set                              | set         |
+| `t`                                      | `true`      |
+| `nil`                                    | `nil`       |
+| non-serializable (buffer, fn, `(1 . 2)`) | string repr |
+
+Elisp writes a map three ways and a caller who wrote `(:a 1)` means a map, so
+all three cross as maps. A list stays a list when it is neither shape: every
+key of an alist has to be a cons with an atom for its car, every key of a plist
+a keyword, so `("a" 1)` and `(:a 1 :b)` come back as lists.
 
 A non-serializable value is stringified *where it stands*, so the rest of the
 reply is still data — `{:ok 1 :buf (el/current-buffer)}` comes back as a map

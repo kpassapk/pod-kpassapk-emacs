@@ -14,13 +14,6 @@ const RESOURCES: &[(&str, &str)] = &[
 
 const VENDOR: &[(&str, &str)] = &[
     ("bencode.el", include_str!("../vendor/bencode.el")),
-    ("a.el", include_str!("../vendor/a.el")),
-    ("parseclj.el", include_str!("../vendor/parseclj.el")),
-    ("parseclj-alist.el", include_str!("../vendor/parseclj-alist.el")),
-    ("parseclj-ast.el", include_str!("../vendor/parseclj-ast.el")),
-    ("parseclj-lex.el", include_str!("../vendor/parseclj-lex.el")),
-    ("parseclj-parser.el", include_str!("../vendor/parseclj-parser.el")),
-    ("parseedn.el", include_str!("../vendor/parseedn.el")),
     ("cljbang.el", include_str!("../vendor/cljbang.el")),
     ("cljbang-core.el", include_str!("../vendor/cljbang-core.el")),
     ("cljbang-string.el", include_str!("../vendor/cljbang-string.el")),

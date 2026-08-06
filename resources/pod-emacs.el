@@ -18,7 +18,7 @@
 ;;; Code:
 
 (require 'bencode)
-(require 'parseedn)
+(require 'cljbang)
 (require 'cl-lib)
 (require 'pod-emacs-util)
 
@@ -72,7 +72,7 @@ cannot run remotely: their job is to transform forms on the client.")
   (setf (alist-get ns pod-emacs--client-vars nil nil #'equal) vars))
 
 (defun pod-emacs--ns-vars (ns handlers)
-  "The describe/load-ns var entries for NS: HANDLERS then client-side vars.
+  "The describe var entries for NS: HANDLERS then client-side vars.
 Handler vars are listed by name only (the client makes invoke stubs);
 client vars carry their Clojure source in `code'.  Handlers come first so
 a shipped macro can reference the stubs it expands to."
@@ -163,10 +163,8 @@ ARGS are real data, so nothing is string-spliced into elisp."
 
 (defun pod-emacs--eval-clj (code)
   "Compile Clojure source CODE with cljbang and evaluate it in this Emacs.
-cljbang is `require'd lazily so sessions that never use `clj!' don't load
-it.  Definitions persist for the life of the emacs child, so one call can
+Definitions persist for the life of the emacs child, so one call can
 `defn' helpers that later calls use."
-  (require 'cljbang)
   (cljbang-eval-string code))
 
 ;; Core's own namespace, registered like any feature module.
@@ -254,7 +252,7 @@ it.  Definitions persist for the life of the emacs child, so one call can
   (let* ((var (gethash "var" msg))
          (args-edn (gethash "args" msg))
          (args (when (and args-edn (> (length args-edn) 0))
-                 (append (parseedn-read-str args-edn) nil))))
+                 (append (cljbang-edn-read-string args-edn) nil))))
     (condition-case err
         (let ((result (pod-emacs--dispatch var args)))
           (pod-emacs--send

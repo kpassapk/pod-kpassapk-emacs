@@ -47,6 +47,8 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           zip="pod-kpassapk-emacs-${version}-${{ matrix.artifact }}.zip"
           (cd "target/${{ matrix.target }}/release" && zip "$GITHUB_WORKSPACE/$zip" pod-kpassapk-emacs)
+          # The binary embeds the vendored elisp, so its licences ride along.
+          zip "$zip" LICENSE NOTICE
           shasum -a 256 "$zip" > "$zip.sha256"
 
       - uses: actions/upload-artifact@v4

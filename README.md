@@ -3,25 +3,28 @@
 ![Status](https://img.shields.io/badge/status-alpha-blue)
 [![bb compatible](https://raw.githubusercontent.com/babashka/babashka/master/logo/badge.svg)](https://book.babashka.org#badges)
 
-A [babashka pod](https://github.com/babashka/pods) that exposes Emacs to babashka scripts.
+A [babashka pod](https://github.com/babashka/pods) for emacs.
 
 ## But why?
 
 I got the idea for this project when I was trying out [clime](https://github.com/cosmicz/clime) to expose some elisp functions as a command line (CLI) tool. 
-It worked, but I wasn't sure I wanted to learn another CLI framework. What if I could use [lambdaisland/cli][lambdaisland] or [babashka/cli][bb-cli] 
-instead?
+It worked, but I kept wanting [lambdaisland/cli][lambdaisland] or [babashka/cli][bb-cli].
+
+It's straightforward for a bb script to communiceate with emacs via `emacsclient`. By why settle for straightforward? If I could treat emacs as a babashka pod, then I could build not only a CLI, but also "chatty" TUIs or other long-running apps that call emacs continuously. Turns out this sort of "reverse nREPL" (from bb to emacs, rather than the other way around) works. 
+
+Around this time, Michiel Borkent released [cljbang.el][cljbang], converting Clojure syntax to elisp. 
 
 [lambdaisland]: https://github.com/lambdaisland/cli
 [bb-cli]: https://github.com/babashka/cli
+[cljbang]: https://github.com/borkdude/cljbang.el
 
 ## What's here
 
 This project bundles in these excellent elisp libraries:
 
-- [parseedn](https://github.com/clojure-emacs/parseedn)
-- [parseclj](https://github.com/clojure-emacs/parseclj)
-- [emacs-bencode](https://github.com/skeeto/emacs-bencode)
-- [cljbang.el](https://github.com/borkdude/cljbang.el) — powers the `clj!` macro
+- [emacs-bencode](https://github.com/skeeto/emacs-bencode) — wire framing
+- [cljbang.el][cljbang] — powers the `clj!` macro,
+  and reads the EDN arguments a call arrives with
 
 It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) to expose Emacs
 itself as one Clojure namespace, `pod.kpassapk.emacs`:
@@ -227,3 +230,9 @@ Since there is no command loop, undo boundaries are never pushed: edits across `
 
 Copyright © 2026 Kyle Passarelli. Distributed under the Eclipse Public License
 1.0 — see [LICENSE](LICENSE).
+
+A released binary carries the vendored elisp inside it, so those libraries'
+terms travel with it: MIT for cljbang.el, the Unlicense for emacs-bencode, both
+reproduced in [NOTICE](NOTICE). A library whose licence does not sit with
+EPL-1.0 cannot be vendored here — that is why the EDN printer is our own and
+not GPL-licensed parseedn's.
