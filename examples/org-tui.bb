@@ -27,14 +27,10 @@
 (pods/load-pod [pod])
 (require '[pod.kpassapk.emacs :as emacs])
 
-;; Install cljbang-org on first run, the way the pod installs its own
-;; third-party elisp, and load it.
-(emacs/clj!
- (el/require 'package)
- (el/package-initialize)
- (when-not (el/locate-library "cljbang-org")
-   (el/package-vc-install "https://github.com/kpassapk/cljbang-org"))
- (el/require 'cljbang-org))
+;; Install cljbang-org into the batch Emacs on first run, and load it.  The
+;; argument is an ordinary `use-package' declaration, so any package
+;; use-package can install is reachable without rebuilding the pod.
+(emacs/install! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
 
 ;; Defined once inside Emacs; definitions persist for the pod session.
 ;; A src block and a `#+call:' line are both steps a runbook can run, and they

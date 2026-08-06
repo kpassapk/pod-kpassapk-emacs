@@ -10,10 +10,6 @@ use std::path::{Path, PathBuf};
 const RESOURCES: &[(&str, &str)] = &[
     ("pod-emacs.el", include_str!("../resources/pod-emacs.el")),
     ("pod-emacs-util.el", include_str!("../resources/pod-emacs-util.el")),
-    ("pod-emacs-org.el", include_str!("../resources/pod-emacs-org.el")),
-    ("pod-emacs-devops.el", include_str!("../resources/pod-emacs-devops.el")),
-    ("pod-emacs-org-roam.el", include_str!("../resources/pod-emacs-org-roam.el")),
-    ("pod-emacs-ob-babashka.el", include_str!("../resources/pod-emacs-ob-babashka.el")),
 ];
 
 const VENDOR: &[(&str, &str)] = &[

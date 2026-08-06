@@ -55,7 +55,7 @@
                    "   :artifact/url \"" (dl platform) "\"\n"
                    "   :artifact/executable \"" pod-exe "\"}"))]
     (str "{:pod/name kpassapk/emacs\n"
-         " :pod/description \"Expose Emacs (org-mode, org-roam, clj!, ...) to babashka scripts\"\n"
+         " :pod/description \"Expose Emacs to babashka scripts: run Clojure inside Emacs with clj!\"\n"
          " :pod/version \"" version "\"\n"
          " :pod/license \"EPL-1.0\"\n"
          " :pod/language \"rust\"\n"

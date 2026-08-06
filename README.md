@@ -23,19 +23,17 @@ This project bundles in these excellent elisp libraries:
 - [emacs-bencode](https://github.com/skeeto/emacs-bencode)
 - [cljbang.el](https://github.com/borkdude/cljbang.el) — powers the `clj!` macro
 
-It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) to expose emacs packages as Clojure namepsaces:
+It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) to expose Emacs
+itself as one Clojure namespace, `pod.kpassapk.emacs`:
 
-**Built-in:**
+- `clj!` writes Clojure and runs it inside Emacs, so any elisp — org-mode, Calc,
+  project.el, a package of your own — is callable without a wrapper namespace.
+- `install!` takes a `use-package` declaration and installs the package into the
+  batch Emacs, so a script reaches third-party elisp without rebuilding the pod.
 
-- org mode
-
-Other built-in libraries (calc, project.el, ...) need no dedicated namespace —
-call them directly with the `clj!` macro.
-
-**Third party:**
-
-- [org roam](https://github.com/org-roam/org-roam)
-- [devops.el](https://github.com/kpassapk/devops.el)
+Earlier versions shipped a table of per-library namespaces
+(`pod.kpassapk.emacs.org`, `…org-roam`, …). Those two vars subsume it; see
+[Loading elisp](#loading-elisp).
 
 ## Quickstart
 
@@ -46,8 +44,7 @@ Load the pod by local path and call it:
 
 (pods/load-pod 'kpassapk/emacs "0.3.1")
 
-(require '[pod.kpassapk.emacs :as emacs]
-         '[pod.kpassapk.emacs.org :as org])
+(require '[pod.kpassapk.emacs :as emacs])
 
 ;; Write Clojure, run it inside Emacs (via cljbang), get EDN back:
 (emacs/clj! (+ 1 2))                        ;=> 3
@@ -59,20 +56,23 @@ Load the pod by local path and call it:
 (emacs/eval "(+ 1 2)")            ;=> 3
 (emacs/eval "(upcase \"hi\")")    ;=> "HI"
 
-;; Read an org file
-(org/outline "examples/sample.org")
+;; Pull in an Emacs package, then call it like any other elisp. Here
+;; cljbang-org reads an org file as data:
+(emacs/install! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
+
+(emacs/clj!
+ (require '[cljbang.org :as-alias org])
+ (vec (take 2 (org/headings "examples/sample.org"))))
 ;;=>
-;; {:file "/abs/path/to/examples/sample.org"
-;;  :title "Project Roadmap"
-;;  :children [{:level 1 :title "Planning" :begin 42
-;;              :children [{:level 2 :title "Define scope" :todo "TODO"
-;;                          :priority "A" :tags ["urgent" "planning"]
-;;                          :scheduled "<2026-06-25 Thu>"
-;;                          :properties {:EFFORT "2h" :CUSTOM_ID "scope"}
-;;                          :begin 87
-;;                          :children [...]}
-;;                         ...]}
-;;             ...]}
+;; [{:title "Planning" :level 1 :begin 42 :end 388
+;;   :todo nil :priority nil :tags #{} :scheduled nil :deadline nil
+;;   :properties {:CATEGORY "sample"}
+;;   :file "/abs/path/to/examples/sample.org"}
+;;  {:title "Define scope" :level 2 :begin 87 :end 323
+;;   :todo "TODO" :priority "A" :tags #{"urgent" "planning"}
+;;   :scheduled "<2026-06-25 Thu>" :deadline nil
+;;   :properties {:CATEGORY "sample" :EFFORT "2h" :CUSTOM_ID "scope"}
+;;   :file "/abs/path/to/examples/sample.org"}]
 ```
 
 See [examples](./examples/) for more.
@@ -117,15 +117,29 @@ and `emacs/eval` still evaluates plain Emacs Lisp.
 
 ### Loading elisp
 
-The pod defers loading of elisp packages until they are required from Clojure. 
+The pod carries no library of its own. `emacs/install!` takes a
+[use-package](https://www.gnu.org/software/emacs/manual/html_mono/use-package.html)
+declaration and runs it in the batch Emacs, so anything use-package can install
+is one call away — a built-in that only needs loading, a package from an ELPA
+archive, or one from git:
 
+```clojure
+(emacs/install! 'calc)                     ; built-in: just load it
+(emacs/install! '(org-roam :ensure t))     ; from an ELPA archive
+(emacs/install! '(cljbang-org
+                  :vc (:url "https://github.com/kpassapk/cljbang-org")))
 ```
-(require '[pod.kpassapk.emacs.org-roam :as roam]) ;; org-roam downloaded (if necessary) and required here
-```
 
-Since loading is deferred, this repository can provide a large library of emacs packages, which users can pick _a la carte_.
+The head of the declaration is the package symbol and the rest are
+use-package's own keywords, so `:config`, `:after` and friends work as usual.
+The call is synchronous and idempotent: it returns with the package installed,
+or throws. After that the package is ordinary elisp — call it with `clj!`.
 
-See the [Packages](#packages) section if you want to add a new elisp library. Pull requests welcome.
+This replaces the deferred namespaces earlier versions shipped
+(`pod.kpassapk.emacs.org-roam` and the like), where requiring a namespace
+installed its package and gave you a handful of pod-side wrapper vars. `clj!`
+made the wrappers unnecessary and `install!` covers the installing, so adding a
+library no longer means forking and rebuilding the pod.
 
 ## Requirements
 
@@ -146,48 +160,16 @@ See [examples](examples/README.md).
 
 ## Packages
 
-See [doc/packages.md](doc/packages.md) for a list of available packages.
+See [doc/packages.md](doc/packages.md) for the vars the pod exposes.
 
-To use a built-in emacs package from Clojure, create a pod elisp file in `resources/` which calls `pod-emacs-register`, 
-and add the [named feature](https://www.gnu.org/software/emacs/manual/html_node/elisp/Named-Features.html)  to `pod-emacs--deferred` in `pod-emacs.el`.
+There is nothing to register: an Emacs package becomes usable from Clojure by
+installing it with `emacs/install!` and calling it with `emacs/clj!` — see
+[Loading elisp](#loading-elisp). No pod fork, no rebuild.
 
-For example, let's say we have want to be able to require `pod.kpassapk.emacs.foo` from Clojure, with elisp function `foo-func1` 
-and Clojure function `(foo/func1)`. We would add a file like this to `resources/pod-emacs-foo.el`:
-
-```
-;;; Code:
-
-(defun pod-emacs-func1 ()
-  (foo-func1))
-
-... 
-
-(pod-emacs-register
- "pod.kpassapk.emacs.foo"
- `(("func1"    . ,#'pod-emacs-func1)))
- 
-(provide 'pod-emacs-foo)
-;;; pod-emacs-foo.el ends here
-```
-
-Then we would add `pod-emacs-foo` (the provided feature name) it to `pod-emacs-deferred`:
-
-```
-(defvar pod-emacs--deferred
-  ... 
-  ("pod.kpassapk.emacs.foo" . pod-emacs-foo) ;; add this
-... 
-```
-
-If the library is _not_ built into emacs, you can pass in a `use-package` form to `pod-emacs-deferred`. When the library is required (in Clojure), 
-the pod will attempt to install it. For example, here we are installing [devops.el](https://github.com/kpassapk/devops.el) from git:
-
-```
-("pod.kpassapk.emacs.devops" .
-     (pod-emacs-devops . (:use-package devops
-				       :ensure t
-				       :vc (:url "https://github.com/kpassapk/devops.el"))))
-```
+If a package needs elisp glue to be pleasant from Clojure, write the glue as an
+ordinary Emacs package and install that. [cljbang-org](https://github.com/kpassapk/cljbang-org)
+does exactly this for org-mode — it returns plain maps and leaves the shaping to
+the caller — and both org examples here use it.
 
 ## Errors
 

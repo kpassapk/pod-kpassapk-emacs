@@ -40,43 +40,19 @@
 
 ;;;; ---------------------------------------------------------------- registry
 
-;; Feature modules (pod-emacs-*) register
-;; themselves here instead of being hard-wired into describe/dispatch.  Core
-;; knows nothing of their internals; the dependency runs one way (modules
-;; require core).  Modules load *lazily*: a feature's namespace is advertised
-;; as deferred in `describe', and the module is `require'd only when the
-;; babashka client first requires that namespace (a `load-ns' op).
+;; Feature modules (pod-emacs-*) register themselves here instead of being
+;; hard-wired into describe/dispatch.  Core knows nothing of their internals;
+;; the dependency runs one way (modules require core).
+;;
+;; Third-party elisp is deliberately *not* registered here.  The pod ships no
+;; library table: a script installs the package it wants with `install!' (see
+;; below) and calls it through `clj!', so adding a library never means forking
+;; and rebuilding the pod binary.
 
 (defvar pod-emacs--namespaces nil
   "Registered namespaces, an alist (NS-NAME . VARS).
 NS-NAME is the fully-qualified namespace string; VARS is an alist of
 \(VAR-NAME . HANDLER), where HANDLER is applied to the invoke args.")
-
-(defvar pod-emacs--deferred
-  '(("pod.kpassapk.emacs.org-roam" .
-     (pod-emacs-org-roam . (:use-package org-roam :ensure t)))
-    ("pod.kpassapk.emacs.ob-babashka" .
-     (pod-emacs-ob-babashka . (:use-package ob-babashka
-					    :ensure t
-					    :after org
-					    :vc (:url "https://github.com/kpassapk/ob-babashka")
-					    :config
-					    (add-to-list 'org-babel-load-languages '(babashka . t))))))
-  "Alist of clojure namespace (string) -> deferred elisp feature SPEC.
-On the first `load-ns' for a namespace its SPEC is resolved, the feature
-`require'd, and the module is expected to `pod-emacs-register' as it loads.
-Loading is lazy: nothing here runs at startup, so scripts that never require
-a deferred namespace never pay for it.  SPEC is one of:
-
-  FEATURE                      a feature symbol, just `require'd.
-  (FEATURE . (:use-package . DECL))
-                               `package-initialize', then evaluate
-                               (use-package . DECL) to install/load the
-                               package, *before* `require'ing FEATURE.
-
-To add a feature, drop a `pod-emacs-FOO.el' on the load path and add an entry
-here.  This is the only place core learns a feature exists — no filesystem
-scanning, no environment variables.")
 
 (defun pod-emacs-register (ns vars)
   "Register namespace NS (string) exposing VARS.
@@ -113,73 +89,50 @@ a shipped macro can reference the stubs it expands to."
 
 (defun pod-emacs--describe-reply ()
   "Build the describe reply hash-table.
-Eagerly-registered namespaces (core) ship their vars; each not-yet-loaded
-entry in `pod-emacs--deferred' ships as a `defer' stub, so the client loads
-it — and its elisp module — on first `require' via a `load-ns' op."
-  (let* ((loaded (mapcar #'car pod-emacs--namespaces))
-         (eager (mapcar (lambda (ns)
+Every registered namespace ships its vars; there is nothing to defer, since
+the pod registers no third-party libraries of its own."
+  (pod-emacs--ht
+   "format" "edn"
+   "namespaces" (mapcar (lambda (ns)
                           (pod-emacs--ht
                            "name" (car ns)
                            "vars" (pod-emacs--ns-vars (car ns) (cdr ns))))
-                        (reverse pod-emacs--namespaces)))
-         (deferred (delq nil
-                         (mapcar (lambda (d)
-                                   (unless (member (car d) loaded)
-                                     (pod-emacs--ht "name" (car d)
-                                                    "defer" "true")))
-                                 pod-emacs--deferred))))
-    (pod-emacs--ht
-     "format" "edn"
-     "namespaces" (append eager deferred)
-     "ops" (pod-emacs--ht "shutdown" (make-hash-table :test 'equal)
-                          "load-ns" (make-hash-table :test 'equal)))))
+                        (reverse pod-emacs--namespaces))
+   "ops" (pod-emacs--ht "shutdown" (make-hash-table :test 'equal))))
 
-(defun pod-emacs--prepare-config (config)
-  "Run a deferred namespace's CONFIG before its feature is `require'd.
-CONFIG is the cdr of a `pod-emacs--deferred' cons SPEC; its head keyword
-selects an action.  Only `:use-package' is supported: `package-initialize',
-then evaluate the `(use-package PKG ...)' declaration spliced from the rest of
-CONFIG, so the external package is installed/loaded before the `pod-emacs-FOO'
-module requires it."
-  (pcase config
-    (`(:use-package . ,decl)
-     (require 'package)
-     (package-initialize)
-     (require 'use-package)
-     (eval `(use-package ,@decl) t))
-    (_ (error "Unsupported deferred config: %S" config))))
+;;;; ---------------------------------------------------------------- packages
 
-(defun pod-emacs--load-ns (ns id)
-  "Handle a `load-ns' request for namespace NS, replying to request ID.
-Resolve the SPEC mapped in `pod-emacs--deferred', run any `:use-package'
-config, `require' the feature (which registers NS), then send back its vars.
-On failure reply with an error status so the client's `require' throws cleanly."
-  (condition-case err
-      (let* ((spec (alist-get ns pod-emacs--deferred nil nil #'equal))
-             (feature (if (consp spec) (car spec) spec)))
-        (unless spec (error "No such deferred namespace: %s" ns))
-        (when (consp spec) (pod-emacs--prepare-config (cdr spec)))
-        (require feature)
-        ;; Membership, not truthiness: a side-effect-only feature (e.g.
-        ;; ob-babashka, loaded just to enable bb src blocks) registers with an
-        ;; empty vars alist.  That is a valid namespace, not a load failure, so
-        ;; probe with `assoc' — `alist-get' can't tell "no entry" from "entry
-        ;; whose value is nil".
-        (let ((entry (assoc ns pod-emacs--namespaces)))
-          (unless entry (error "Namespace %s registered no vars on load" ns))
-          (pod-emacs--send
-           (pod-emacs--ht
-            "name" ns
-            "vars" (pod-emacs--ns-vars ns (cdr entry))
-            "id" id))))
-    (error
-     (pod-emacs--send
-      (pod-emacs--ht
-       "id" id
-       "ex-message" (error-message-string err)
-       "ex-data" (pod-emacs--encode-edn
-                  (pod-emacs--ht :type (symbol-name (car err)) :ns ns))
-       "status" (list "done" "error"))))))
+(defun pod-emacs--install (decl)
+  "Install and load an Emacs package; return its name as a string.
+DECL is a `use-package' declaration whose head is the package symbol, so its
+keywords are use-package's: `:ensure t' pulls the package from an archive,
+`:vc (:url URL)' from git, and `:after'/`:config' shape the load.  A bare
+symbol means \"just load it\", which is all a built-in needs.
+
+This is how a script gets elisp into the batch Emacs — the pod carries no
+package registry, so anything installable by use-package is reachable without
+rebuilding the pod.  The call is synchronous: it returns with the package
+installed, or signals."
+  (unless decl (error "install!: missing package declaration"))
+  (let* ((decl (if (listp decl) decl (list decl)))
+         (name (symbol-name (car decl))))
+    (require 'package)
+    (package-initialize)
+    (require 'use-package)
+    ;; A fresh batch Emacs has no archive contents, and `package-install'
+    ;; failing there says "package is unavailable", which reads as "no such
+    ;; package".  Fetch the lists once, and only when `:ensure' will need them.
+    (when (and (memq :ensure decl)
+               (null package-archive-contents)
+               (null (locate-library name)))
+      (package-refresh-contents))
+    (eval `(use-package ,@decl) t)
+    ;; use-package is quiet when a package is missing and quiet again when
+    ;; `:after'/`:defer' postponed the load, so the post-condition to check is
+    ;; "installed", not "loaded".
+    (unless (locate-library name)
+      (error "install!: package %s did not install" name))
+    name))
 
 ;;;; ---------------------------------------------------------------- eval
 
@@ -225,6 +178,7 @@ it.  Definitions persist for the life of the emacs child, so one call can
                      (load (expand-file-name path) nil t t)
                      (file-name-nondirectory path)))
    ("funcall"   . ,#'pod-emacs--funcall)
+   ("install!"  . ,#'pod-emacs--install)
    ("version"   . ,#'pod-emacs--version)))
 
 ;; The `clj!' macro runs on the babashka side: it captures its body as forms,
@@ -324,8 +278,6 @@ it.  Definitions persist for the life of the emacs child, so one call can
     (cond
      ((equal op "describe")
       (pod-emacs--send (pod-emacs--describe-reply)) nil)
-     ((equal op "load-ns")
-      (pod-emacs--load-ns (gethash "ns" msg) id) nil)
      ((equal op "invoke")
       (pod-emacs--invoke msg id) nil)
      ((equal op "shutdown")
@@ -368,7 +320,7 @@ buffers."
 
 (defun pod-emacs-main ()
   "Run the pod protocol loop over base64-framed stdin/stdout.
-Only core is loaded at startup; feature modules load lazily on `load-ns'."
+Only core is loaded at startup; packages a script needs arrive via `install!'."
   (set-binary-mode 'stdin t)
   (let ((buf (get-buffer-create pod-emacs--in-buffer-name))
         ;; stdout is the protocol channel: anything user elisp writes there

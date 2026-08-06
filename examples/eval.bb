@@ -3,7 +3,8 @@
 (require '[babashka.pods :as pods]
          '[clojure.java.io :as io])
 
-;; Loading emacs packages is deferred, so startup time is fast.
+;; The child loads only the pod's own elisp at startup — packages arrive later,
+;; and only if a script asks for them with `emacs/install!' — so startup is fast.
 ;;
 ;; $ time bb eval.bb
 ;; [pod-kpassapk-emacs] emacs: /opt/homebrew/bin/emacs

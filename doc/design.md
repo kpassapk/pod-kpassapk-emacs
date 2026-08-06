@@ -72,11 +72,18 @@ the protocol brain in elisp, where org-mode lives.
 
 ## Pod surface (namespaces / vars)
 
-- `pod.kpassapk.emacs/eval` — eval an elisp string, return result as EDN.
-- `pod.kpassapk.emacs/eval-file` — load an `.el` file in the Emacs process.
-- `pod.kpassapk.emacs/version` — Emacs version info.
-- `pod.kpassapk.emacs.org/outline` — read an org file, return its outline as EDN
-  (nested headlines: `:level :title :todo :tags :properties :children`).
+One namespace, `pod.kpassapk.emacs`:
+
+- `clj!` — run Clojure inside Emacs (compiled there by cljbang), result as EDN.
+- `eval` / `eval-clj` — eval an elisp (resp. Clojure) string, result as EDN.
+- `eval-file` — load an `.el` file in the Emacs process.
+- `funcall` — call a named elisp function with EDN-marshalled data args.
+- `install!` — install and load an Emacs package from a `use-package` declaration.
+- `version` — Emacs version info.
+
+Libraries do not get namespaces of their own: `install!` puts the package in the
+child and `clj!` calls it. Reading an org file, the flagship use case above, is
+[cljbang-org](https://github.com/kpassapk/cljbang-org) called through `clj!`.
 
 `format` is `edn`. elisp→EDN mapping (via parseedn, with a thin wrapper for
 predictability): plist/hash-table → map, vector → vector, list → list, keyword →

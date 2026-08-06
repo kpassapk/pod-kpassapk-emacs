@@ -17,24 +17,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for raw Clojure source strings.
 - Client-side var registry (`pod-emacs-register-client`): any namespace can
   ship Clojure code to the babashka client through the pod protocol.
-
-- [org] Add `:in-place` opt to `org/execute`
-- [org] Add `call-blocks` — list every `#+call:` line 
-  (`babel-call` element) in a file as EDN, in document order.
-- [org] `org/execute` gains a `:begin` selector — address a block by its buffer
-  position (as returned by `src-blocks`/`call-blocks`). It runs whichever kind
-  of block is at that position, so src blocks and `#+call:` lines execute
-  through one uniform selector.
-- [ob-babashka] New library
+- `install!` — install and load an Emacs package from a `use-package`
+  declaration (`:ensure`, `:vc`, `:after`, `:config` all behave as in an init
+  file); a bare symbol just loads a built-in. Synchronous, idempotent, returns
+  the package name, and throws if the package did not end up installed.
+  Together with `clj!` this replaces the pod's own library table: any package
+  use-package can install is reachable without a pod release.
 
 ### Removed
 
-- **BREAKING:** the `pod.kpassapk.emacs.calc` and `pod.kpassapk.emacs.project`
-  namespaces. Both were thin data-in/data-out wrappers over plain elisp
-  functions, which `clj!` now subsumes — call `calc-eval`,
-  `math-convert-units`, `project-root` etc. directly via `el/`. See
-  `doc/packages.md` ("Thin wrappers: use `clj!` instead") and
-  `examples/calc-units.bb`.
+- **BREAKING:** every per-library namespace — `pod.kpassapk.emacs.calc`,
+  `.project`, `.org`, `.devops`, `.org-roam` and `.ob-babashka` — along with
+  the deferred-namespace mechanism behind them (the `defer` stubs in the
+  describe reply and the `load-ns` op). They were thin data-in/data-out
+  wrappers whose only other job was installing a package on first `require`;
+  `clj!` subsumes the wrapping and `install!` the installing. Call the elisp
+  directly via `el/`, and for org-mode use
+  [cljbang-org](https://github.com/kpassapk/cljbang-org) — see
+  `doc/packages.md` ("Calling elisp: use `clj!`") and the reworked
+  `examples/org-portal.bb` / `examples/org-tui.bb`.
 
 ### Fixed
 
@@ -42,16 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   insert. A call that left another buffer current (e.g. `find-file`) made the
   next request decode bencode out of that buffer's text, killing the session
   with `bencode-invalid-byte`.
-- Released binaries embed `pod-emacs-ob-babashka.el`; it was missing from the
-  embedded resource list, so the ob-babashka namespace only loaded from a repo
-  checkout.
-
-### Changed
-
-- [org] `org/execute` now throws when a block's process exits non-zero
-  (message carries the exit code and stderr) instead of silently returning
-  partial output. Stderr output with exit 0 remains non-fatal.
-- Allow registering libraries with no vars (e.g. ob-babashka)
+- The build embedded elisp files that no longer exist (`pod-emacs-org.el`,
+  `pod-emacs-devops.el`), so `cargo build` failed on a clean checkout.
 
 ## [0.3.1] - 2026-07-16
 
