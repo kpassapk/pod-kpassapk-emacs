@@ -40,7 +40,7 @@
 
 ;;;; ---------------------------------------------------------------- registry
 
-;; Feature modules (pod-emacs-org, and any pod-emacs-* you add later) register
+;; Feature modules (pod-emacs-*) register
 ;; themselves here instead of being hard-wired into describe/dispatch.  Core
 ;; knows nothing of their internals; the dependency runs one way (modules
 ;; require core).  Modules load *lazily*: a feature's namespace is advertised
@@ -53,13 +53,7 @@ NS-NAME is the fully-qualified namespace string; VARS is an alist of
 \(VAR-NAME . HANDLER), where HANDLER is applied to the invoke args.")
 
 (defvar pod-emacs--deferred
-  '(("pod.kpassapk.emacs.org" . pod-emacs-org)
-    ("pod.kpassapk.emacs.devops" .
-     (pod-emacs-devops . (:use-package devops
-				       :ensure t
-				       :after org
-				       :vc (:url "https://github.com/kpassapk/devops.el"))))
-    ("pod.kpassapk.emacs.org-roam" .
+  '(("pod.kpassapk.emacs.org-roam" .
      (pod-emacs-org-roam . (:use-package org-roam :ensure t)))
     ("pod.kpassapk.emacs.ob-babashka" .
      (pod-emacs-ob-babashka . (:use-package ob-babashka
