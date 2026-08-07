@@ -10,10 +10,29 @@ A [babashka pod](https://github.com/babashka/pods) for emacs.
 I got the idea for this project when I was trying out [clime](https://github.com/cosmicz/clime) to expose some elisp functions as a command line (CLI) tool. 
 It worked, but I kept wanting [lambdaisland/cli][lambdaisland] or [babashka/cli][bb-cli].
 
-It's straightforward for a bb script to communiceate with emacs via `emacsclient`. By why settle for straightforward? If I could treat emacs as a babashka pod, then I could build not only a CLI, but also "chatty" TUIs or other long-running apps that call emacs continuously. Turns out this sort of "reverse nREPL" (from bb to emacs, rather than the other way around) works. 
+Of course it's straightforward for a bb script to communiceate with emacs: call `emacsclient` with [babashka.Process][bbprocess]. But why settle for straightforward? If I could instead connect as sort of a "reverse nrepl" (from bb to emacs, rather than the other way around) I could build "chatty" TUIs or other long-running babashka apps that call emacs continuously. What could this be useful for? Unclear, but org mode something something. Anyway, moving on.
 
-Around this time, Michiel Borkent released [cljbang.el][cljbang], converting Clojure syntax to elisp. 
+I just got the connnection part working when Michiel Borkent released [cljbang.el][cljbang]. This simplified things quite a bit, and made the API way nicer. Here is a snippet from the [portal]./examples/org-portal.bb) example.
 
+```clojure
+    (emacs/clj!
+     (require '[cljbang.org :as-alias org])
+
+     (defn outline [file]
+       {:file file
+	    :title (first (:title (org/keywords file)))
+	    :children (org/tree (org/headings file {:body? true}))}))
+
+    (def p (p/open))
+    (add-tap #'p/submit)
+```
+
+There's that [org][cljbang-org] thing!
+
+Borkdude said about cljbang, "I'm not sure if any of this is a good idea, but it kinda works for me." I feel kind of the same, especially with a little help to make some gnarly elisp internals more clojure-y.
+
+[bbprocess]: https://github.com/babashka/process
+[cljbang-org]: https://github.com/kpassapk/cljbang-org
 [lambdaisland]: https://github.com/lambdaisland/cli
 [bb-cli]: https://github.com/babashka/cli
 [cljbang]: https://github.com/borkdude/cljbang.el
@@ -22,9 +41,8 @@ Around this time, Michiel Borkent released [cljbang.el][cljbang], converting Clo
 
 This project bundles in these excellent elisp libraries:
 
-- [emacs-bencode](https://github.com/skeeto/emacs-bencode) — wire framing
-- [cljbang.el][cljbang] — powers the `clj!` macro,
-  and reads the EDN arguments a call arrives with
+- [emacs-bencode](https://github.com/skeeto/emacs-bencode)
+- [cljbang.el][cljbang]
 
 It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) to expose Emacs
 itself as one Clojure namespace, `pod.kpassapk.emacs`:
@@ -33,10 +51,6 @@ itself as one Clojure namespace, `pod.kpassapk.emacs`:
   project.el, a package of your own — is callable without a wrapper namespace.
 - `use-package!` takes a `use-package` declaration and runs it in the batch
   Emacs, so a script reaches third-party elisp without rebuilding the pod.
-
-Earlier versions shipped a table of per-library namespaces
-(`pod.kpassapk.emacs.org`, `…org-roam`, …). Those two vars subsume it; see
-[Loading elisp](#loading-elisp).
 
 ## Quickstart
 
@@ -49,18 +63,15 @@ Load the pod by local path and call it:
 
 (require '[pod.kpassapk.emacs :as emacs])
 
-;; Write Clojure, run it inside Emacs (via cljbang), get EDN back:
 (emacs/clj! (+ 1 2))                        ;=> 3
 (emacs/clj! (el/upcase "hi"))               ;=> "HI"
 (emacs/clj! (->> (el/buffer-list)
                  (mapv el/buffer-name)))    ;=> ["*scratch*" ...]
 
-;; Or evaluate raw Emacs Lisp strings:
 (emacs/eval "(+ 1 2)")            ;=> 3
 (emacs/eval "(upcase \"hi\")")    ;=> "HI"
 
-;; Pull in an Emacs package, then call it like any other elisp. Here
-;; cljbang-org reads an org file as data:
+;; Pull in an Emacs package, then call it like any other elisp.
 (emacs/use-package! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
 
 (emacs/clj!
@@ -82,11 +93,9 @@ See [examples](./examples/) for more.
 
 ### The clj! macro
 
-`emacs/clj!` is the main way to talk to Emacs: write Clojure, not stringified
-elisp. Its body is captured as forms, sent to the Emacs child, and compiled to
-Emacs Lisp there by [cljbang.el](https://github.com/borkdude/cljbang.el) — no
-transpiled text, no subprocess on the Emacs side. The last form's value comes
-back as EDN.
+`emacs/clj!` captures its body as forms, sends them to the Emacs child, and
+compiles / converts them to elisp with [cljbang.el](https://github.com/borkdude/cljbang.el)
+The last form's value comes back as EDN.
 
 ```clojure
 ;; el/<name> calls any Emacs Lisp function or variable:
@@ -99,7 +108,7 @@ back as EDN.
   (emacs/clj! (el/find-file ~path))
   (emacs/clj! (+ ~@nums)))          ;=> 6
 
-;; Definitions persist for the pod session: defn helpers once, call later.
+;; Definitions persist for the pod session
 (emacs/clj! (defn stale-buffers []
               (->> (el/buffer-list)
                    (filter (fn [b] (let [f (el/buffer-file-name b)]
@@ -108,12 +117,7 @@ back as EDN.
 (emacs/clj! (stale-buffers))
 ```
 
-The body is [cljbang's Clojure dialect](https://github.com/borkdude/cljbang.el):
-most of the sequence library, destructuring, threading macros, and `#(...)`
-literals work; inside Emacs, maps are hash tables and there are no lazy seqs.
-Some arities differ (e.g. `reduce` needs an init value). See the cljbang docs
-for the details. Errors thrown in Emacs surface as `ex-info` on the babashka
-side, same as `emacs/eval` ([Errors](#errors)).
+Errors thrown in Emacs surface as `ex-info` on the babashka side, same as `emacs/eval` ([Errors](#errors)).
 
 For raw source strings there is also `(emacs/eval-clj "(reduce + 0 [1 2 3])")`,
 and `emacs/eval` still evaluates plain Emacs Lisp.
@@ -134,17 +138,8 @@ archive, or one from git:
 ```
 
 The head of the declaration is the package symbol and the rest are
-use-package's own keywords, so `:config`, `:after` and friends work as usual —
-including the two that fetch. A bare symbol only loads, so a third-party
-package needs `:ensure t` (archive) or `:vc` (git), exactly as in an init file.
-The call is synchronous and idempotent: it returns with the package present, or
-throws. After that the package is ordinary elisp — call it with `clj!`.
-
-This replaces the deferred namespaces earlier versions shipped
-(`pod.kpassapk.emacs.org-roam` and the like), where requiring a namespace
-installed its package and gave you a handful of pod-side wrapper vars. `clj!`
-made the wrappers unnecessary and `use-package!` covers the installing, so
-adding a library no longer means forking and rebuilding the pod.
+use-package's own keywords, so `:config`, `:after` and friends work as usual.
+The call returns with the package present, or throws. 
 
 ## Requirements
 
@@ -166,15 +161,6 @@ See [examples](examples/README.md).
 ## Packages
 
 See [doc/packages.md](doc/packages.md) for the vars the pod exposes.
-
-There is nothing to register: an Emacs package becomes usable from Clojure by
-declaring it with `emacs/use-package!` and calling it with `emacs/clj!` — see
-[Loading elisp](#loading-elisp). No pod fork, no rebuild.
-
-If a package needs elisp glue to be pleasant from Clojure, write the glue as an
-ordinary Emacs package and install that. [cljbang-org](https://github.com/kpassapk/cljbang-org)
-does exactly this for org-mode — it returns plain maps and leaves the shaping to
-the caller — and both org examples here use it.
 
 ## Errors
 
@@ -227,6 +213,7 @@ Since there is no command loop, undo boundaries are never pushed: edits across `
 ## Roadmap
 
 - Socket transport? (see [ADR-02](doc/adr/02-socket-transport.md))
+  - Could we connect to an already running emacs instance with socket transport?
 
 ## License
 

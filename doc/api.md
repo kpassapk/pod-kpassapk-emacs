@@ -1,4 +1,4 @@
-# Packages
+# API
 
 ## `pod.kpassapk.emacs`
 
@@ -40,27 +40,16 @@
 | `nil`                                    | `nil`       |
 | non-serializable (buffer, fn, `(1 . 2)`) | string repr |
 
-Elisp writes a map three ways and a caller who wrote `(:a 1)` means a map, so
-all three cross as maps. A list stays a list when it is neither shape: every
-key of an alist has to be a cons with an atom for its car, every key of a plist
-a keyword, so `("a" 1)` and `(:a 1 :b)` come back as lists.
+Emacs can express map-like structures in three ways.
+A list stays a list when it is neither shape: every key of an alist has to 
+be a cons with an atom for its car, every key of a plist a keyword, 
+so `("a" 1)` and `(:a 1 :b)` come back as lists.
 
-A non-serializable value is stringified *where it stands*, so the rest of the
+A non-serializable value is stringified, so the rest of the
 reply is still data — `{:ok 1 :buf (el/current-buffer)}` comes back as a map
 with a string under `:buf`, not as one long string.
 
-## Declaring packages
-
-`use-package!` runs a [use-package](https://www.gnu.org/software/emacs/manual/html_mono/use-package.html)
-declaration in the batch Emacs. The head of the declaration is the package
-symbol; the rest are use-package's own keywords, so `:ensure`, `:vc`, `:after`
-and `:config` behave exactly as they do in an init file. A bare symbol means
-"just load it", which is all a built-in needs.
-
-Fetching follows the same rule: use-package installs when the declaration asks
-it to, so a third-party package needs `:ensure t` (from an archive) or `:vc`
-(from git). A bare symbol naming a package Emacs does not have throws rather
-than downloading anything.
+## use-package!
 
 ```clojure
 (emacs/use-package! 'calc)                     ;=> "calc"     ; built-in
@@ -77,14 +66,10 @@ than downloading anything.
                       :config (add-to-list 'org-babel-load-languages '(babashka . t))))
 ```
 
-The call is synchronous and idempotent, and returns the package name. It throws
-if the package is not on the load path afterwards — use-package is quiet about
-a missing package, so `use-package!` checks rather than trusting it. With
+`use-package!` throws if the package is not on the load path afterwards. (Unlike the underlying
+emacs macro, which is quiet about a missing package., so `use-package!` checks rather than trusting it. With
 `:ensure`, the archive lists are refreshed once if they are empty, so a first
 call on a fresh Emacs does not fail with "package is unavailable".
-
-The pod ships no package registry of its own: whatever use-package can reach is
-reachable, and a new library never needs a pod release.
 
 ## Calling elisp: use `clj!`
 
