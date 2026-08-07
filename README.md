@@ -30,7 +30,7 @@ I just got the connnection part working when Michiel Borkent released [cljbang.e
 
 There's that [org][cljbang-org] thing!
 
-Borkdude said about cljbang, "I'm not sure if any of this is a good idea, but it kinda works for me." I feel kind of the same, especially with a little help to make some gnarly elisp internals more clojure-y.
+Borkdude said about cljbang, "I'm not sure if any of this is a good idea, but it kinda works for me." I feel kind of the same, especially with a little library help to make some gnarly elisp internals more clojure-y.
 
 [bbprocess]: https://github.com/babashka/process
 [cljbang-org]: https://github.com/kpassapk/cljbang-org
@@ -45,13 +45,13 @@ This project bundles in these excellent elisp libraries:
 - [emacs-bencode](https://github.com/skeeto/emacs-bencode)
 - [cljbang.el][cljbang]
 
-It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) to expose Emacs
-itself as one Clojure namespace, `pod.kpassapk.emacs`:
+It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) to expose emacs
+itself as one Clojure namespace, `pod.kpassapk.emacs`, defining:
 
-- `clj!` writes Clojure and runs it inside Emacs, so any elisp — org-mode, Calc,
-  project.el, a package of your own — is callable without a wrapper namespace.
-- `use-package!` takes a `use-package` declaration and runs it in the batch
-  Emacs, so a script reaches third-party elisp without rebuilding the pod.
+- `clj!`, which writes Clojure and runs it inside emacs
+- `use-package!`, which (predictably) takes a `use-package` declaration and runs it in emacs
+
+See the [api](./doc/api.md) docs for more.
 
 ## Quickstart
 
@@ -161,7 +161,7 @@ See [examples](examples/README.md).
 
 ## Packages
 
-See [doc/packages.md](doc/packages.md) for the vars the pod exposes.
+See [doc/api.md](doc/packages.md) for the vars the pod exposes.
 
 ## Errors
 
