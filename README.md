@@ -30,7 +30,7 @@ I just got the connnection part working when Michiel Borkent released [cljbang.e
 
 There's that [org][cljbang-org] thing!
 
-Borkdude said about cljbang, "I'm not sure if any of this is a good idea, but it kinda works for me." I feel kind of the same, especially with a little library help to make some gnarly elisp internals more clojure-y.
+Borkdude said about cljbang, "I'm not sure if any of this is a good idea, but it kinda works for me." I feel kind of the same, especially with a little [library help][cljbang-org] to make some gnarly elisp internals more clojure-y.
 
 [bbprocess]: https://github.com/babashka/process
 [cljbang-org]: https://github.com/kpassapk/cljbang-org
@@ -60,7 +60,7 @@ Load the pod by local path and call it:
 ```clojure
 (require '[babashka.pods :as pods])
 
-(pods/load-pod 'kpassapk/emacs "0.3.1")
+(pods/load-pod 'kpassapk/emacs "0.4.0")
 
 (require '[pod.kpassapk.emacs :as emacs])
 
@@ -139,8 +139,7 @@ archive, or one from git:
 ```
 
 The head of the declaration is the package symbol and the rest are
-use-package's own keywords, so `:config`, `:after` and friends work as usual.
-The call returns with the package present, or throws. 
+use-package's own keywords, so `:config`, `:after` and friends work as usual. The call returns with the package present, or throws. This is unlike emacs `use-package`, which silently ignores unknown packages. (I guess so that it does not interrupt emacs loading, but it's unfortunate.)
 
 ## Requirements
 
