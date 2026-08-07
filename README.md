@@ -25,6 +25,7 @@ I just got the connnection part working when Michiel Borkent released [cljbang.e
 
     (def p (p/open))
     (add-tap #'p/submit)
+    (tap> (emacs/clj! (outline ~org-file)))
 ```
 
 There's that [org][cljbang-org] thing!
