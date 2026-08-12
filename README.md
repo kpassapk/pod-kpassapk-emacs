@@ -15,17 +15,17 @@ Of course it's straightforward for a bb script to communiceate with emacs: call 
 I just got the connnection part working when Michiel Borkent released [cljbang.el][cljbang]. This simplified things quite a bit, and made the API way nicer. Here is a snippet from the [portal]./examples/org-portal.bb) example.
 
 ```clojure
-    (emacs/clj!
-     (require '[cljbang.org :as-alias org])
+(emacs/clj!
+ (require '[cljbang.org :as-alias org])
 
-     (defn outline [file]
-       {:file file
-	    :title (first (:title (org/keywords file)))
-	    :children (org/tree (org/headings file {:body? true}))}))
+ (defn outline [file]
+   {:file file
+	:title (first (:title (org/keywords file)))
+	:children (org/tree (org/headings file {:body? true}))}))
 
-    (def p (p/open))
-    (add-tap #'p/submit)
-    (tap> (emacs/clj! (outline ~org-file)))
+(def p (p/open))
+(add-tap #'p/submit)
+(tap> (emacs/clj! (outline ~org-file)))
 ```
 
 There's that [org][cljbang-org] thing!

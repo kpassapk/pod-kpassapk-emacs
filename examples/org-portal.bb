@@ -21,6 +21,7 @@
 (def org-file (or (first *command-line-args*)
                   (.getPath (io/file here "sample.org"))))
 
+;; Normally (pods/load-pod 'kpassapk/emacs "0.4.0")
 (pods/load-pod [pod])
 (require '[pod.kpassapk.emacs :as emacs])
 
