@@ -102,6 +102,52 @@ the pod registers no third-party libraries of its own."
 
 ;;;; ---------------------------------------------------------------- packages
 
+(defconst pod-emacs--bundled '(cljbang)
+  "Packages the pod loads from its own elisp, not from `package-user-dir'.")
+
+(defun pod-emacs--register-bundled ()
+  "Record the packages in `pod-emacs--bundled' as built in, at their versions.
+They are on `load-path' but not in `package-alist', so package.el calls a
+package that requires one unavailable: package-vc looks for cljbang in the
+archives when installing cljbang-org, and activating cljbang-org fails.  Both
+ask `package-built-in-p', which consults `package--builtin-versions' first.
+The version comes from the library's own header, so it stays right when the
+vendored copy is updated."
+  (require 'lisp-mnt)
+  (dolist (pkg pod-emacs--bundled)
+    (unless (assq pkg package--builtin-versions)
+      (when-let* ((file (locate-library (format "%s.el" pkg) t))
+                  (version (lm-with-file file (lm-header "Version"))))
+        (push (cons pkg (version-to-list version)) package--builtin-versions)))))
+
+(defun pod-emacs--vc-install (name arg)
+  "Install NAME from git as use-package's `:vc' ARG asks.
+This stands in for the keyword on an Emacs whose use-package predates it
+\(29).  ARG is a package-vc spec plist, `:url' and friends, plus
+use-package's own `:rev': `:newest' takes the branch head and no `:rev' the
+last release, as the keyword does."
+  (unless (and (consp arg) (keywordp (car arg)))
+    (error "use-package!: :vc takes (:url URL ...) on Emacs %s" emacs-version))
+  (unless (package-installed-p name)
+    (require 'package-vc)
+    (let ((rev (plist-get arg :rev))
+          (spec nil))
+      (while arg
+        (unless (eq (car arg) :rev)
+          (setq spec (append spec (list (car arg) (cadr arg)))))
+        (setq arg (cddr arg)))
+      (package-vc-install (cons name spec)
+                          (cond ((eq rev :newest) nil)
+                                ((null rev) :last-release)
+                                (t rev))))))
+
+(defun pod-emacs--without-keyword (decl keyword)
+  "DECL without KEYWORD and its argument."
+  (let ((tail (memq keyword decl)))
+    (if tail
+        (append (butlast decl (length tail)) (cddr tail))
+      decl)))
+
 (defun pod-emacs--use-package (decl)
   "Run the `use-package' declaration DECL; return the package name as a string.
 DECL's head is the package symbol and the rest are use-package's own keywords,
@@ -116,17 +162,32 @@ rebuilding the pod.  The call is synchronous: it returns with the package
 present, or signals."
   (unless decl (error "use-package!: missing package declaration"))
   (let* ((decl (if (listp decl) decl (list decl)))
-         (name (symbol-name (car decl))))
+         (name (symbol-name (car decl)))
+         (fetches (or (memq :ensure decl) (memq :vc decl))))
     (require 'package)
+    (pod-emacs--register-bundled)
     (package-initialize)
     (require 'use-package)
-    ;; A fresh batch Emacs has no archive contents, and `package-install'
-    ;; failing there says "package is unavailable", which reads as "no such
-    ;; package".  Fetch the lists once, and only when `:ensure' will need them.
-    (when (and (memq :ensure decl)
-               (null package-archive-contents)
-               (null (locate-library name)))
+    ;; An archive whose list was never fetched looks like one without the
+    ;; package: `package-install' says "package is unavailable", and package-vc
+    ;; reports a dependency it could not install.  That is every archive on a
+    ;; fresh batch Emacs, and one a script just added to `package-archives'.
+    ;; Fetch the lists then, and only when `:ensure' or `:vc' will need them.
+    (when (and fetches
+               (null (locate-library name))
+               (seq-some (lambda (archive)
+                           (not (file-exists-p
+                                 (expand-file-name
+                                  (format "archives/%s/archive-contents"
+                                          (car archive))
+                                  package-user-dir))))
+                         package-archives))
       (package-refresh-contents))
+    ;; use-package learned `:vc' in Emacs 30.  On 29 the pod does what the
+    ;; keyword would, then hands use-package the rest of the declaration.
+    (when (and (memq :vc decl) (not (memq :vc use-package-keywords)))
+      (pod-emacs--vc-install (car decl) (cadr (memq :vc decl)))
+      (setq decl (pod-emacs--without-keyword decl :vc)))
     (eval `(use-package ,@decl) t)
     ;; use-package is quiet when a package is missing and quiet again when
     ;; `:after'/`:defer' postponed the load, so the post-condition to check is
@@ -134,7 +195,7 @@ present, or signals."
     ;; lands here, hence the hint: use-package only fetches when asked to.
     (unless (locate-library name)
       (error "use-package!: package %s is not available%s" name
-             (if (memq :ensure decl) ""
+             (if fetches ""
                " (add `:ensure t' to install it from an archive, or\
  `:vc (:url URL)' from git)")))
     name))

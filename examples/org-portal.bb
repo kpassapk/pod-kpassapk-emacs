@@ -25,10 +25,17 @@
 (pods/load-pod [pod])
 (require '[pod.kpassapk.emacs :as emacs])
 
+;; cljbang-org needs org-ql, which is on MELPA.  The pod's Emacs starts with
+;; only GNU and NonGNU ELPA, so add MELPA before installing.
+(emacs/eval "(require 'package)
+             (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)")
+
 ;; Install cljbang-org into the batch Emacs on first run, and load it.  The
 ;; argument is an ordinary `use-package' declaration — `:vc' is what fetches —
 ;; so any package use-package can reach is reachable without rebuilding the pod.
-(emacs/use-package! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
+;; `:rev :newest' takes the default branch: package-vc otherwise checks out the
+;; commit that last bumped `Version:', and `tree' is newer than that.
+(emacs/use-package! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org" :rev :newest)))
 
 ;; Defined once inside Emacs; definitions persist for the pod session.
 ;; `headings' is flat, `tree' nests it by :level, and the #+TITLE: comes from

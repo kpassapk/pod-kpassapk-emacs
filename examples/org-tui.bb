@@ -1,7 +1,7 @@
 #!/usr/bin/env bb
 ;; Something like runme.dev but with org mode
 ;;
-;;   bb examples/org-tui.clj [path/to/runbook.org]
+;;   bb examples/org-tui.bb [path/to/runbook.org]
 ;;
 ;; Blocks are run *off the UI thread* by wrapping the ordinary synchronous
 ;; `org/execute!' call in a `future'.  Pod invokes are id-routed, so the call
@@ -27,10 +27,18 @@
 (pods/load-pod [pod])
 (require '[pod.kpassapk.emacs :as emacs])
 
+;; cljbang-org needs org-ql, which is on MELPA.  The pod's Emacs starts with
+;; only GNU and NonGNU ELPA, so add MELPA before installing.
+(emacs/eval "(require 'package)
+             (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)")
+
 ;; Install cljbang-org into the batch Emacs on first run, and load it.  The
 ;; argument is an ordinary `use-package' declaration — `:vc' is what fetches —
 ;; so any package use-package can reach is reachable without rebuilding the pod.
-(emacs/use-package! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
+;; `:rev :newest' takes the default branch: package-vc otherwise checks out the
+;; commit that last bumped `Version:', and `call-blocks' and `execute!' are
+;; newer than that.
+(emacs/use-package! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org" :rev :newest)))
 
 ;; Defined once inside Emacs; definitions persist for the pod session.
 ;; A src block and a `#+call:' line are both steps a runbook can run, and they
