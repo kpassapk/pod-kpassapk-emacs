@@ -3,15 +3,16 @@
 One command:
 
 ```
-bb release 0.4.0            # cut and publish v0.4.0
+bb release 0.4.0            # cut and publish v0.4.0, then open its pod-registry PR
 bb release 0.4.0 --dry-run  # run every check, change nothing
 ```
 
 ## What `bb release <version>` does
 
 1. **Guards** — refuses to run unless: you are on `main`, the working tree is
-   clean, tag `v<version>` exists neither locally nor on origin, and
-   `CHANGELOG.md` has a non-empty `[Unreleased]` section.
+   clean, tag `v<version>` exists neither locally nor on origin,
+   `CHANGELOG.md` has a non-empty `[Unreleased]` section, and `gh` can reach
+   the `kpassapk/pod-registry` fork.
 2. **Bumps** the version in `Cargo.toml`.
 3. **Cuts the changelog** — inserts `## [<version>] - <today>` under
    `## [Unreleased]` and updates the compare links at the bottom. (Skipping
@@ -23,22 +24,20 @@ bb release 0.4.0 --dry-run  # run every check, change nothing
    anything is committed.
 5. **Commits, tags, pushes** — commit `Release v<version>`, tag `v<version>`,
    push `main` and the tag together.
+6. **Opens the pod-registry PR** — once CI has published the GitHub Release;
+   see [Publishing to the pod registry](#publishing-to-the-pod-registry).
 
 Pushing the tag triggers `.github/workflows/release.yml`, which builds the
 four platform binaries (linux/macos × amd64/aarch64, static musl on linux),
-zips them with sha256 checksums, and publishes a GitHub Release. Watch it:
-
-```
-gh run watch
-gh release view v0.4.0     # should list 8 assets (4 zips + 4 checksums)
-```
+zips them with sha256 checksums, and publishes a GitHub Release. Step 6 watches
+that run (`gh run watch`) before it does anything else.
 
 The implementation lives in `scripts/release.clj` (namespace `release`, on the
 classpath via `:paths ["scripts"]` in `bb.edn`, following the pattern of
 babashka's own pods, e.g. babashka-sql-pods). Unlike pods that upload release
 artifacts from the release machine with `borkdude/gh-release-artifact`, this
 pod needs a cross-platform build matrix, so CI owns the artifact uploads and
-the local script only tags.
+the local script tags, then waits for them.
 
 ## Version numbering
 
@@ -58,21 +57,31 @@ the pod by name, no download step:
 (pods/load-pod 'kpassapk/emacs "0.4.0")
 ```
 
-Registration is a PR per version:
+Registration is a PR per version against `babashka/pod-registry`, which
+`bb release` opens as its last step. To run that step on its own — to retry
+after it failed, or for a release cut before it existed:
 
-1. Wait for the GitHub Release assets to be up (`gh release view v0.4.0`).
-2. Fork/clone `babashka/pod-registry`.
-3. Generate the manifest — `bb release` prints it at the end, or run it any
-   time for the current `Cargo.toml` version:
+```
+bb registry-pr 0.4.0            # version defaults to the one in Cargo.toml
+bb registry-pr 0.4.0 --dry-run  # commit in a temporary clone and show it; no push, no PR
+```
 
-   ```
-   bb manifest > <pod-registry>/manifests/kpassapk/emacs/0.4.0/manifest.edn
-   ```
+It refuses if a PR for the version is already open or the registry already has
+its manifest, then:
 
-4. First registration only: add a short usage example under
-   `examples/kpassapk_emacs.clj` in the registry repo (theirs run in CI, so
-   keep it self-contained; note the pod needs an Emacs on the host).
-5. Open the PR.
+1. Waits for the tag's `release.yml` run to succeed and checks the GitHub
+   Release has every platform zip, so the PR never points at missing files.
+2. Clones the fork `kpassapk/pod-registry` into a temporary directory and
+   branches `kpassapk-emacs-<version>` from the registry's own `master` (gh
+   adds it as the `upstream` remote), so the fork's `master` can be stale.
+3. Commits `Update kpassapk/emacs pod to <version>`: the manifest at
+   `manifests/kpassapk/emacs/<version>/manifest.edn` (the text `bb manifest`
+   prints), and the version bumped in the registry README's pod table and in
+   `examples/kpassapk_emacs.clj`.
+4. Force-pushes the branch to the fork, so a rerun can replace a branch whose
+   PR never got opened, and opens the PR.
+
+It needs `gh` logged in with push access to the fork.
 
 The manifest's `:os/name` values are regex patterns matched against the JVM's
 `os.name` (`Linux.*`, `Mac.*`), and `:os/arch` against `os.arch` — note macOS
@@ -83,4 +92,7 @@ artifacts carry different `:os/arch` values.
 
 If the script can't run, the steps it automates, in order: bump `Cargo.toml`,
 cut `CHANGELOG.md` (new section + compare links), `bb test`, commit
-`Release vX.Y.Z`, `git tag vX.Y.Z`, `git push origin main vX.Y.Z`.
+`Release vX.Y.Z`, `git tag vX.Y.Z`, `git push origin main vX.Y.Z`. Once the
+GitHub Release has its assets, open the registry PR from a branch of the fork:
+`bb manifest > manifests/kpassapk/emacs/X.Y.Z/manifest.edn`, and bump the
+version in the README's pod table and in `examples/kpassapk_emacs.clj`.

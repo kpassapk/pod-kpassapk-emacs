@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `bb release` ends by opening the pod-registry PR: it waits for CI to publish
+  the GitHub Release, then adds the manifest and bumps the registry's README
+  and example from a temporary clone of the fork. `bb registry-pr [version]`
+  runs that step on its own. See `doc/release.md`.
+
 ## [0.5.1] - 2026-09-15
 
 - Update release script

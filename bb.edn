@@ -15,6 +15,9 @@
          release  {:doc      "Cut and publish a release: bb release <version> [--dry-run]. See doc/release.md."
                    :requires ([release])
                    :task     (apply release/main *command-line-args*)}
+         registry-pr {:doc   "Open the pod-registry PR for a published release: bb registry-pr [version] [--dry-run]."
+                      :requires ([release])
+                      :task  (apply release/registry-pr-main *command-line-args*)}
          manifest {:doc      "Print the pod-registry manifest.edn for the version in Cargo.toml."
                    :requires ([release])
                    :task     (release/print-manifest)}
