@@ -12,7 +12,8 @@
     2. bump the version in Cargo.toml
     3. cut CHANGELOG.md: [Unreleased] -> [<version>] - <today>, update the
        compare links at the bottom
-    4. cargo build --release (refreshes Cargo.lock) and run the test suite
+    4. bb test: cargo build --release (refreshes Cargo.lock), then the test
+       suite in a temporary user dir
     5. commit \"Release v<version>\", tag, push main and the tag
 
   Pushing the tag triggers .github/workflows/release.yml, which builds the
@@ -123,8 +124,10 @@
         (spit cargo-file cargo')
         (spit changelog-file changelog')
         (println "release: building and testing...")
-        (shell {:dir root} "cargo build --release")
-        (shell {:dir root} "bb scripts/run-tests.clj")
+        ;; `bb test', not the runner directly: the task builds first and gives
+        ;; the suite a fresh user dir, so packages already in <cache>/emacs.d
+        ;; cannot fail the release.
+        (shell {:dir root} "bb test")
         (shell {:dir root} "git add Cargo.toml Cargo.lock CHANGELOG.md")
         (shell {:dir root} "git commit -m" (str "Release v" version))
         (shell {:dir root} "git tag" (str "v" version))

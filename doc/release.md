@@ -17,8 +17,10 @@ bb release 0.4.0 --dry-run  # run every check, change nothing
    `## [Unreleased]` and updates the compare links at the bottom. (Skipping
    this step by hand is how v0.2.0 ended up tagged with no changelog section —
    the guard makes that impossible now.)
-4. **Builds and tests** — `cargo build --release` (refreshes `Cargo.lock`),
-   then the full test suite. Any failure aborts before anything is committed.
+4. **Builds and tests** — `bb test`: `cargo build --release` (refreshes
+   `Cargo.lock`), then the full test suite in a temporary user dir, so packages
+   already in `<cache>/emacs.d` can't affect it. Any failure aborts before
+   anything is committed.
 5. **Commits, tags, pushes** — commit `Release v<version>`, tag `v<version>`,
    push `main` and the tag together.
 
