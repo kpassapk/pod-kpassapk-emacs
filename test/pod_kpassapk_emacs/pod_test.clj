@@ -132,7 +132,12 @@
         repo    (str (fs/path tmp "pod-fixture-pkg"))
         archive (str (io/file fixtures "archive") "/")
         decl    (list 'pod-fixture-pkg :vc (list :url repo))
-        reqs    "(package-desc-reqs (cadr (assq 'pod-fixture-pkg package-alist)))"]
+        ;; The header of the installed copy, as package.el reads it.  Emacs 29
+        ;; records no requirements on the descriptor of a package installed
+        ;; from git, so the descriptor in `package-alist' is not the place.
+        reqs    (str "(package-desc-reqs (with-temp-buffer"
+                     " (insert-file-contents (locate-library \"pod-fixture-pkg.el\" t))"
+                     " (package-buffer-info)))")]
     (try
       (fs/copy-tree (io/file fixtures "pod-fixture-pkg") repo)
       (git! repo "init" "-q")
