@@ -51,8 +51,9 @@ real stream. Emacs `--batch` has no "read exactly N raw bytes" primitive.
   base64 is pure ASCII and newline-free, so it is safe to feed Emacs'
   line-oriented `read-string`, and it carries arbitrary binary bencode losslessly.
   The shim also resolves the Emacs binary, materializes the embedded elisp
-  sources (a repo checkout enclosing the binary is used directly instead), and
-  manages the child's lifecycle.
+  sources (a repo checkout enclosing the binary is used directly instead),
+  gives the child its own `user-emacs-directory` so packages never touch the
+  user's `~/.emacs.d`, and manages the child's lifecycle.
 
 - **Emacs `--batch` child** (`resources/pod-emacs.el`). The actual pod logic:
   1. Read a base64 line (`read-string`), decode to raw bytes, append to an

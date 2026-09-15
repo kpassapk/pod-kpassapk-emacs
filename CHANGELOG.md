@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING:** the Emacs child gets its own `user-emacs-directory`,
+  `<cache>/emacs.d`, passed as `--init-directory`. It used to share the user's
+  `~/.emacs.d`, so `use-package!` installed packages into the user's editor,
+  and every package installed there was loadable from the pod whether a script
+  declared it or not — a script could work on one machine and fail on the
+  next. A script that relied on that must now declare its packages with
+  `use-package!`, or set `POD_KPASSAPK_EMACS_USER_DIR=~/.emacs.d` to share the
+  editor's directory as before.
+- Emacs 29 or later is required: it is the first release with
+  `--init-directory`, and with use-package built in.
+
 ## [0.4.0] - 2026-08-07
 
 ### Added

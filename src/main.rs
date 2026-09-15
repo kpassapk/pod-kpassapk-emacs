@@ -7,7 +7,7 @@ mod elisp;
 
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{exit, Command, Stdio};
 
 use base64::engine::general_purpose::STANDARD as B64;
@@ -34,6 +34,15 @@ pub fn cache_dir() -> PathBuf {
         Some(home) => PathBuf::from(home).join(".cache/pod-kpassapk-emacs"),
         None => die("cannot locate a cache dir: none of POD_KPASSAPK_EMACS_CACHE, XDG_CACHE_HOME, HOME are set"),
     }
+}
+
+/// The emacs child's `user-emacs-directory`, where `use-package!` installs
+/// packages. It is the pod's own rather than the user's ~/.emacs.d, so a script
+/// never installs into their editor or loads a package it did not declare.
+fn user_emacs_dir(cache: &Path) -> PathBuf {
+    std::env::var_os("POD_KPASSAPK_EMACS_USER_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| cache.join("emacs.d"))
 }
 
 #[cfg(unix)]
@@ -154,6 +163,10 @@ fn main() {
     }
 
     let root = elisp::elisp_root(&cache);
+    let user_dir = user_emacs_dir(&cache);
+    if let Err(e) = fs::create_dir_all(&user_dir) {
+        die(&format!("cannot create emacs user dir {}: {e}", user_dir.display()));
+    }
     let emacs = resolve_emacs()
         .unwrap_or_else(|| die("no emacs found: set POD_KPASSAPK_EMACS_BIN or put emacs on PATH"));
     log(&format!("emacs: {}", emacs.display()));
@@ -165,6 +178,9 @@ fn main() {
     let mut child = Command::new(&emacs)
         .arg("--batch")
         .arg("-Q")
+        // -Q still honors this: it moves elpa/ and eln-cache/ off ~/.emacs.d
+        .arg("--init-directory")
+        .arg(&user_dir)
         .arg("--eval")
         .arg(QUIET)
         .arg("-L")

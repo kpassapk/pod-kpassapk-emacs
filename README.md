@@ -141,10 +141,12 @@ archive, or one from git:
 The head of the declaration is the package symbol and the rest are
 use-package's own keywords, so `:config`, `:after` and friends work as usual. The call returns with the package present, or throws. This is unlike emacs `use-package`, which silently ignores unknown packages. (I guess so that it does not interrupt emacs loading, but it's unfortunate.)
 
+Packages are installed into the pod's own Emacs directory (`<cache>/emacs.d`). See "Emacs resolution" below.
+
 ## Requirements
 
 - **Clojure / babashka** — to run your scripts and load the pod.
-- **Emacs** — the pod tries a few strategies to resolve the emacs binary. See [Emacs resolution](#emacs-resolution).
+- **Emacs 29 or later** — the pod tries a few strategies to resolve the emacs binary. See [Emacs resolution](#emacs-resolution).
 
 The pod executable itself is a self-contained binary. Grab a platform build from the
 [releases page](https://github.com/kpassapk/pod-kpassapk-emacs/releases), or
@@ -186,14 +188,18 @@ When the pod starts, the shim resolves an Emacs binary in this order:
 
 Customize via these environment variables:
 
-| Env var                    | Purpose                                                              |
-|----------------------------|----------------------------------------------------------------------|
-| `POD_KPASSAPK_EMACS_BIN`   | Force a specific Emacs executable (skips all other resolution).      |
-| `POD_KPASSAPK_EMACS_CACHE` | Cache directory for extracted elisp and `emacs.log`.                 |
-| `POD_KPASSAPK_EMACS_ELISP` | Load elisp from this directory (expects `resources/` and `vendor/`). |
+| Env var                       | Purpose                                                              |
+|-------------------------------|----------------------------------------------------------------------|
+| `POD_KPASSAPK_EMACS_BIN`      | Force a specific Emacs executable (skips all other resolution).      |
+| `POD_KPASSAPK_EMACS_CACHE`    | Cache directory for extracted elisp and `emacs.log`.                 |
+| `POD_KPASSAPK_EMACS_ELISP`    | Load elisp from this directory (expects `resources/` and `vendor/`). |
+| `POD_KPASSAPK_EMACS_USER_DIR` | Emacs user directory; `use-package!` installs packages here.         |
 
 Unless overriden by `$POD_KPASSAPK_EMACS_CACHE`, the pod sets the cache directory to
 `$XDG_CACHE_HOME/pod-kpassapk-emacs` or `~/.cache/pod-kpassapk-emacs`.
+
+The Emacs user directory defaults to `emacs.d` inside the cache directory. Set
+`POD_KPASSAPK_EMACS_USER_DIR=~/.emacs.d` to share your editor's packages instead.
 
 The elisp sources are compiled into the binary and extracted to the cache dir
 on first run. When the binary sits inside a repo checkout (e.g.

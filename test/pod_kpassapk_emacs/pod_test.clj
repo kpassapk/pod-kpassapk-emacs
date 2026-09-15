@@ -51,6 +51,22 @@
       (is (pos? (:major-version v)))
       (is (string? (:emacs-version v))))))
 
+;;;; ------------------------------------------------------------- user dir
+
+;; The shim gives the child its own `user-emacs-directory', so `use-package!'
+;; never installs into the editor's ~/.emacs.d, and a package the editor has
+;; installed is not loadable unless a script declares it.
+
+(deftest user-dir-test
+  (testing "the child's user-emacs-directory is not the editor's"
+    (let [dir (ev "(expand-file-name user-emacs-directory)")]
+      (is (not= (ev "(expand-file-name \"~/.emacs.d/\")") dir))
+      (is (not= (ev "(expand-file-name \"~/.config/emacs/\")") dir))))
+
+  (testing "packages install under it"
+    (is (= (ev "(expand-file-name \"elpa\" user-emacs-directory)")
+           (ev "(progn (require 'package) (expand-file-name package-user-dir))")))))
+
 ;;;; ------------------------------------------------------------- use-package!
 
 ;; These use packages that ship with Emacs, so the suite stays offline: no

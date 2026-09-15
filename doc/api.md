@@ -71,6 +71,9 @@ emacs macro, which is quiet about a missing package., so `use-package!` checks r
 `:ensure`, the archive lists are refreshed once if they are empty, so a first
 call on a fresh Emacs does not fail with "package is unavailable".
 
+Packages install into the pod's own `user-emacs-directory` (`<cache>/emacs.d`
+by default, see the [README](../README.md#emacs-resolution))
+
 ## Calling elisp: use `clj!`
 
 Libraries whose functions take and return plain data need no pod namespace in
