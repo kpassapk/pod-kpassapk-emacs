@@ -72,7 +72,10 @@ Load the pod by local path and call it:
 (emacs/eval "(+ 1 2)")            ;=> 3
 (emacs/eval "(upcase \"hi\")")    ;=> "HI"
 
-;; Pull in an Emacs package, then call it like any other elisp.
+;; Pull in an Emacs package, then call it like any other elisp. cljbang-org
+;; needs org-ql from MELPA, so add that archive first.
+(emacs/eval "(require 'package)
+             (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)")
 (emacs/use-package! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
 
 (emacs/clj!
@@ -142,6 +145,15 @@ The head of the declaration is the package symbol and the rest are
 use-package's own keywords, so `:config`, `:after` and friends work as usual. The call returns with the package present, or throws. This is unlike emacs `use-package`, which silently ignores unknown packages. (I guess so that it does not interrupt emacs loading, but it's unfortunate.)
 
 Packages are installed into the pod's own Emacs directory (`<cache>/emacs.d`). See "Emacs resolution" below.
+
+The pod's Emacs starts with Emacs's default archives, GNU ELPA and NonGNU ELPA. To install from MELPA, add it before calling `use-package!`:
+
+```clojure
+(emacs/eval "(require 'package)
+             (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)")
+```
+
+A package that requires cljbang, like cljbang-org, uses the pod's own copy rather than looking for one in an archive.
 
 ## Requirements
 

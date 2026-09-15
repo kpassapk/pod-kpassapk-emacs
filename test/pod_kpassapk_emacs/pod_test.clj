@@ -6,7 +6,9 @@
   values produced by a real Emacs."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.java.io :as io]
-            [babashka.pods :as pods]))
+            [babashka.fs :as fs]
+            [babashka.pods :as pods]
+            [babashka.process :as p]))
 
 ;;;; ------------------------------------------------------------- setup
 
@@ -86,6 +88,13 @@
   (testing "use-package! is idempotent"
     (is (= "subr-x" (use-package! 'subr-x))))
 
+  (testing "the pod's own cljbang counts as installed, at its header version"
+    ;; cljbang-org requires cljbang 0.0.9; without this package-vc looks for
+    ;; it in the archives and activating cljbang-org fails.
+    (use-package! 'subr-x)
+    (is (= true (ev "(and (package-installed-p 'cljbang '(0 0 9)) t)")))
+    (is (nil? (ev "(package-installed-p 'cljbang '(999))"))))
+
   (testing "an unavailable package throws, naming it and how to fetch it"
     (let [e (try (use-package! 'no-such-package-xyz) (catch Exception e e))]
       (is (some? e))
@@ -97,6 +106,70 @@
     (let [e (try (use-package! nil) (catch Exception e e))]
       (is (some? e))
       (is (re-find #"missing package declaration" (ex-message e))))))
+
+;;;; ------------------------------------------------------------- use-package! :vc
+
+;; A package from git, with a dependency from an archive, and no network: the
+;; fixture package under test/fixtures is committed to a temporary git repo
+;; and installed from that path, and its dependency comes from the directory
+;; archive next to it. The fixture's header requires cljbang, which the pod
+;; bundles; seq, which Emacs does; and pod-fixture-dep, which the archive
+;; serves. So one install covers the three ways a requirement can be met.
+;; `bb test' runs the suite in a temporary user dir, so the install starts
+;; from nothing and leaves nothing behind.
+
+(def fixtures
+  "Directory of the test fixtures: a directory archive and a package."
+  (io/file repo-root "test" "fixtures"))
+
+(defn- git! [dir & args]
+  (apply p/shell {:dir (str dir) :out :string :err :string}
+         "git" "-c" "user.name=pod-test" "-c" "user.email=pod-test@example.invalid"
+         args))
+
+(deftest vc-package-test
+  (let [tmp     (fs/create-temp-dir {:prefix "pod-fixture"})
+        repo    (str (fs/path tmp "pod-fixture-pkg"))
+        archive (str (io/file fixtures "archive") "/")
+        decl    (list 'pod-fixture-pkg :vc (list :url repo))
+        reqs    "(package-desc-reqs (cadr (assq 'pod-fixture-pkg package-alist)))"]
+    (try
+      (fs/copy-tree (io/file fixtures "pod-fixture-pkg") repo)
+      (git! repo "init" "-q")
+      (git! repo "add" ".")
+      (git! repo "commit" "-q" "-m" "fixture")
+      ;; Only the fixture archive, so nothing reaches for the network; the
+      ;; child outlives this test, so the archives are put back afterwards.
+      (ev (format "(progn (require 'package)
+                          (setq pod-test--archives package-archives
+                                package-archives '((\"fixture\" . %s))))"
+                  (pr-str archive)))
+
+      (testing "installs from a local git path, with its archive dependency"
+        (is (= "pod-fixture-pkg" (use-package! decl)))
+        (is (= "pkg+dep" (ev "(pod-fixture-pkg-hello)"))
+            "the package loads, and so does its dependency"))
+
+      (testing "every requirement in its header is installed at the version asked"
+        (is (= '(cljbang seq pod-fixture-dep)
+               (ev (str "(mapcar #'car " reqs ")")))
+            "the requirements come from the Package-Requires header")
+        (is (= [true true true]
+               (ev (str "(mapcar (lambda (r) (and (package-installed-p (car r) (cadr r)) t)) "
+                        reqs ")")))))
+
+      (testing "the archive dependency was installed; the bundled one was not"
+        (let [dirs (ev "(directory-files package-user-dir nil \"^[^.]\")")]
+          (is (some #{"pod-fixture-dep-1.0"} dirs))
+          (is (not-any? #(re-find #"^cljbang" %) dirs)
+              "cljbang is the pod's own copy, not an install")))
+
+      (testing "declaring it again is a no-op"
+        (is (= "pod-fixture-pkg" (use-package! decl))))
+
+      (finally
+        (ev "(setq package-archives pod-test--archives)")
+        (fs/delete-tree tmp)))))
 
 ;;;; ------------------------------------------------------------- eval
 

@@ -68,11 +68,17 @@ with a string under `:buf`, not as one long string.
 
 `use-package!` throws if the package is not on the load path afterwards. (Unlike the underlying
 emacs macro, which is quiet about a missing package., so `use-package!` checks rather than trusting it. With
-`:ensure`, the archive lists are refreshed once if they are empty, so a first
-call on a fresh Emacs does not fail with "package is unavailable".
+`:ensure` or `:vc`, the archive lists are fetched when an archive in
+`package-archives` has never been fetched, so neither a first call on a fresh
+Emacs nor one after adding MELPA fails with "package is unavailable".
 
 Packages install into the pod's own `user-emacs-directory` (`<cache>/emacs.d`
 by default, see the [README](../README.md#emacs-resolution))
+
+The archives are Emacs's defaults, GNU ELPA and NonGNU ELPA; add MELPA with
+`emacs/eval` before a declaration that needs it. The cljbang bundled with the
+pod counts as installed, so a package that requires it (cljbang-org does) does
+not look for it in an archive.
 
 ## Calling elisp: use `clj!`
 

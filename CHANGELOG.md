@@ -19,6 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   editor's directory as before.
 - Emacs 29 or later is required: it is the first release with
   `--init-directory`, and with use-package built in.
+- The cljbang bundled with the pod counts as installed for package.el, so a
+  package that requires it, such as cljbang-org, installs into the pod's
+  directory without looking for cljbang in an archive. The org examples add
+  MELPA, where cljbang-org's org-ql dependency lives.
+- `use-package!` with `:ensure` or `:vc` fetches the archive lists when an
+  archive in `package-archives` has never been fetched, such as one a script
+  just added. It used to fetch them only when no archive had been, so adding
+  MELPA to an Emacs directory that already had GNU ELPA's list left MELPA
+  packages unavailable.
+- `:vc` in a `use-package!` declaration works on Emacs 29, whose use-package
+  predates the keyword: the pod installs with package-vc itself there and
+  hands use-package the rest of the declaration.
+- The test suite installs a git-hosted fixture package with an archive
+  dependency, offline, and runs in a temporary user dir; CI runs it against
+  Emacs 29, 30 and 31.
 
 ## [0.4.0] - 2026-08-07
 

@@ -7,13 +7,23 @@ on:
 
 jobs:
   test:
+    name: test (emacs ${{ matrix.emacs }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest supported release and the latest of each line since:
+        # 29 is the floor (--init-directory, use-package built in) and its
+        # use-package predates `:vc', which the pod covers itself there.
+        emacs: ["29.4", "30.2", "31.1"]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Emacs
-        # emacs-nox is enough: the pod drives a headless `emacs --batch' child.
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends emacs-nox
+      - name: Install Emacs ${{ matrix.emacs }}
+        # A headless build is enough: the pod drives an `emacs --batch' child.
+        uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs }}
 
       - name: Install Babashka
         uses: DeLaGuardo/setup-clojure@13.0
