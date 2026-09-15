@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The test suite installs a git-hosted fixture package with an archive
   dependency, offline, and runs in a temporary user dir; CI runs it against
   Emacs 29, 30 and 31.
+- Update to latest cljbang
 
 ## [0.4.0] - 2026-08-07
 

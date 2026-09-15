@@ -5,7 +5,7 @@ and embedded into the pod binary (see `src/elisp.rs`).
 
 | Library | Upstream | Pinned |
 |---|---|---|
-| `cljbang.el`, `cljbang-core.el`, `cljbang-string.el` | https://github.com/borkdude/cljbang.el | `f18da3e525a2b9975b5fd0d476822375448789c9` (MIT) |
+| `cljbang.el`, `cljbang-core.el`, `cljbang-string.el` | https://github.com/borkdude/cljbang.el | `1e45ecca3bfdbb0d50ead0ee473f25e6aee377a2` (MIT) |
 | `bencode.el` | https://github.com/skeeto/emacs-bencode | `b5fe9c9d4b9b5ea61cedd77987ca46eb8154bd16` (Unlicense) |
 
 To bump: `bb vendor` (all) or `bb vendor <lib> ...` where lib is one of
