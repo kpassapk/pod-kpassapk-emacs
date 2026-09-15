@@ -29,7 +29,10 @@ Run org-mode source blocks and `#+call:` lines from bb, through
 [cljbang-org](https://github.com/kpassapk/cljbang-org).
 
 ```
-bb org-tui.bb
+bb org-tui.bb [FILE]
 ```
+
+`FILE` defaults to [runbook.org](runbook.org). A runbook is the TUI's
+input, not a script: `bb runbook.org` won't run it.
 
 ![org-tui](images/org-tui.gif)

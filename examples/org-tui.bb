@@ -1,7 +1,7 @@
 #!/usr/bin/env bb
 ;; Something like runme.dev but with org mode
 ;;
-;;   bb examples/org-tui.clj [path/to/runbook.org]
+;;   bb examples/org-tui.bb [path/to/runbook.org]
 ;;
 ;; Blocks are run *off the UI thread* by wrapping the ordinary synchronous
 ;; `org/execute!' call in a `future'.  Pod invokes are id-routed, so the call
