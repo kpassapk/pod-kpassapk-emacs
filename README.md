@@ -12,7 +12,7 @@ It worked, but I kept wanting [lambdaisland/cli][lambdaisland] or [babashka/cli]
 
 Of course it's straightforward for a bb script to communiceate with emacs: call `emacsclient` with [babashka.Process][bbprocess]. But why settle for straightforward? If I could instead connect as sort of a "reverse nrepl" (from bb to emacs, rather than the other way around) I could build "chatty" TUIs or other long-running babashka apps that call emacs continuously. What could this be useful for? Unclear, but org mode something something. Anyway, moving on.
 
-I just got the connnection part working when Michiel Borkent released [cljbang.el][cljbang]. This simplified things quite a bit, and made the API way nicer. Here is a snippet from the [portal]./examples/org-portal.bb) example.
+I just got the connnection part working when Michiel Borkent released [cljbang.el][cljbang]. This simplified things quite a bit, and made the API way nicer. Here is a snippet from the [portal](./examples/org-portal.bb) example.
 
 ```clojure
 (emacs/clj!
@@ -93,7 +93,7 @@ Load the pod by local path and call it:
 ;;   :file "/abs/path/to/examples/sample.org"}]
 ```
 
-See [examples](./examples/) for more.
+See [examples](./examples/) for more. (Including gifs!)
 
 ### The clj! macro
 
