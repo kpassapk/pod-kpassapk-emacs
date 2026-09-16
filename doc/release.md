@@ -3,8 +3,8 @@
 One command:
 
 ```
-bb release 0.4.0            # cut and publish v0.4.0, then open its pod-registry PR
-bb release 0.4.0 --dry-run  # run every check, change nothing
+bb release 0.5.2            # cut and publish v0.5.2, then open its pod-registry PR
+bb release 0.5.2 --dry-run  # run every check, change nothing
 ```
 
 ## What `bb release <version>` does
@@ -54,7 +54,7 @@ the pod by name, no download step:
 
 ```clojure
 (require '[babashka.pods :as pods])
-(pods/load-pod 'kpassapk/emacs "0.4.0")
+(pods/load-pod 'kpassapk/emacs "0.5.2")
 ```
 
 Registration is a PR per version against `babashka/pod-registry`, which
@@ -62,8 +62,8 @@ Registration is a PR per version against `babashka/pod-registry`, which
 after it failed, or for a release cut before it existed:
 
 ```
-bb registry-pr 0.4.0            # version defaults to the one in Cargo.toml
-bb registry-pr 0.4.0 --dry-run  # commit in a temporary clone and show it; no push, no PR
+bb registry-pr 0.5.2            # version defaults to the one in Cargo.toml
+bb registry-pr 0.5.2 --dry-run  # commit in a temporary clone and show it; no push, no PR
 ```
 
 It refuses if a PR for the version is already open or the registry already has

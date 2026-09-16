@@ -55,12 +55,10 @@ See the [api](./doc/api.md) docs for more.
 
 ## Quickstart
 
-Load the pod by local path and call it:
-
 ```clojure
 (require '[babashka.pods :as pods])
 
-(pods/load-pod 'kpassapk/emacs "0.4.0")
+(pods/load-pod 'kpassapk/emacs "0.5.2")
 
 (require '[pod.kpassapk.emacs :as emacs])
 
@@ -72,8 +70,7 @@ Load the pod by local path and call it:
 (emacs/eval "(+ 1 2)")            ;=> 3
 (emacs/eval "(upcase \"hi\")")    ;=> "HI"
 
-;; Pull in an Emacs package, then call it like any other elisp. cljbang-org
-;; needs org-ql from MELPA, so add that archive first.
+;; cljbang-org needs org-ql from MELPA
 (emacs/eval "(require 'package)
              (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)")
 (emacs/use-package! '(cljbang-org :vc (:url "https://github.com/kpassapk/cljbang-org")))
@@ -97,7 +94,7 @@ See [examples](./examples/) for more. (Including gifs!)
 
 ### The clj! macro
 
-`emacs/clj!` captures its body as forms, sends them to the Emacs child, and
+`emacs/clj!` captures its body as forms, sends them to Emacs, and
 compiles / converts them to elisp with [cljbang.el](https://github.com/borkdude/cljbang.el)
 The last form's value comes back as EDN.
 
@@ -128,11 +125,9 @@ and `emacs/eval` still evaluates plain Emacs Lisp.
 
 ### Loading elisp
 
-The pod carries no library of its own. `emacs/use-package!` takes a
+`emacs/use-package!` takes a
 [use-package](https://www.gnu.org/software/emacs/manual/html_mono/use-package.html)
-declaration and runs it in the batch Emacs, so anything use-package can reach
-is one call away — a built-in that only needs loading, a package from an ELPA
-archive, or one from git:
+declaration and runs it.
 
 ```clojure
 (emacs/use-package! 'calc)                     ; built-in: just load it
@@ -142,18 +137,24 @@ archive, or one from git:
 ```
 
 The head of the declaration is the package symbol and the rest are
-use-package's own keywords, so `:config`, `:after` and friends work as usual. The call returns with the package present, or throws. This is unlike emacs `use-package`, which silently ignores unknown packages. (I guess so that it does not interrupt emacs loading, but it's unfortunate.)
+use-package's own keywords, so `:config`, `:after` and friends work as
+usual. The call returns with the package present, or throws. This is
+unlike emacs `use-package`, which silently ignores unknown
+packages. (I guess so that it does not interrupt emacs loading, but
+it's unfortunate.)
 
-Packages are installed into the pod's own Emacs directory (`<cache>/emacs.d`). See "Emacs resolution" below.
+Packages are installed into the pod's cache directory (`<cache>/emacs.d`). See "Emacs resolution" below.
 
-The pod's Emacs starts with Emacs's default archives, GNU ELPA and NonGNU ELPA. To install from MELPA, add it before calling `use-package!`:
+The pod's Emacs starts with Emacs's default archives, GNU ELPA and
+NonGNU ELPA. To install from MELPA, add it before calling
+`use-package!`:
 
 ```clojure
 (emacs/eval "(require 'package)
              (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)")
 ```
 
-A package that requires cljbang, like cljbang-org, uses the pod's own copy rather than looking for one in an archive.
+A package that requires cljbang uses the pod's own copy rather than looking for one in an archive.
 
 ## Requirements
 
@@ -171,10 +172,6 @@ cargo build --release   # -> target/release/pod-kpassapk-emacs
 See the [ADRs](doc/adr) for more on what the pod executable does.
 
 See [examples](examples/README.md).
-
-## Packages
-
-See [doc/api.md](doc/packages.md) for the vars the pod exposes.
 
 ## Errors
 
@@ -226,12 +223,13 @@ The pod also prints the resolved emacs path to stderr on startup.
 
 If calls hang, it could be that Emacs that wrote something unexpected to stdout, or a download is in progress. Check `emacs.log`.
 
-Since there is no command loop, undo boundaries are never pushed: edits across `eval` calls merge into a single undo group, so `(undo)` can revert everything at once. Call `(undo-boundary)` after each logical edit (and set `last-command` to `'undo` to continue an undo sequence). See [examples/editor.bb](examples/editor.bb).
+`princ`/`print`/`pp` are safe. `send-string-to-terminal` directly will corrupt the pod's framing
+and kill the session. I haven't found any library so far which does this so far.
 
 ## Roadmap
 
 - Socket transport? (see [ADR-02](doc/adr/02-socket-transport.md))
-  - Could we connect to an already running emacs instance with socket transport?
+  - Could we / should we connect to an already running emacs instance with socket transport?
 
 ## License
 

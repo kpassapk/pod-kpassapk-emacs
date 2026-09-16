@@ -1,7 +1,7 @@
 (ns release
   "Release helper for pod-kpassapk-emacs.
 
-    bb release <version>            cut and publish a release (e.g. bb release 0.4.0)
+    bb release <version>            cut and publish a release (e.g. bb release 0.5.2)
     bb release <version> --dry-run  run every check, show planned edits, change nothing
     bb registry-pr [version]        open the pod-registry PR for a published release
                                     (default: the version in Cargo.toml; --dry-run
