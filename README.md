@@ -48,7 +48,7 @@ This project bundles in these excellent elisp libraries:
 It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) to expose emacs
 itself as one Clojure namespace, `pod.kpassapk.emacs`, defining:
 
-- `clj!`, which writes Clojure and runs it inside emacs
+- `clj!`, which takes Clojure and runs it inside emacs
 - `use-package!`, which (predictably) takes a `use-package` declaration and runs it in emacs
 
 See the [api](./doc/api.md) docs for more.
