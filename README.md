@@ -3,14 +3,14 @@
 ![Status](https://img.shields.io/badge/status-alpha-blue)
 [![bb compatible](https://raw.githubusercontent.com/babashka/babashka/master/logo/badge.svg)](https://book.babashka.org#badges)
 
-A [babashka pod](https://github.com/babashka/pods) for emacs.
+An Emacs [pod](https://github.com/babashka/pods) for Babashka and Clojure JVM.
 
 ## But why?
 
 I got the idea for this project when I was trying out [clime](https://github.com/cosmicz/clime) to expose some elisp functions as a command line (CLI) tool. 
 It worked, but I kept wanting [lambdaisland/cli][lambdaisland] or [babashka/cli][bb-cli].
 
-Of course it's straightforward for a bb script to communiceate with emacs: call `emacsclient` with [babashka.Process][bbprocess]. But why settle for straightforward? If I could instead connect as sort of a "reverse nrepl" (from bb to emacs, rather than the other way around) I could build "chatty" TUIs or other long-running babashka apps that call emacs continuously. What could this be useful for? Unclear, but org mode something something. Anyway, moving on.
+Of course it's straightforward for a bb script to communiceate with emacs: call `emacs --batch` or `emacsclient` with `babashka.Process`. But why settle for straightforward? If I could instead connect as sort of a "reverse nrepl" (from bb to emacs, rather than the other way around) I could build "chatty" TUIs or other long-running babashka apps that call emacs continuously. What could this be useful for? Unclear, but org mode something something. Anyway, moving on.
 
 I just got the connnection part working when Michiel Borkent released [cljbang.el][cljbang]. This simplified things quite a bit, and made the API way nicer. Here is a snippet from the [portal](./examples/org-portal.bb) example.
 
@@ -28,15 +28,16 @@ I just got the connnection part working when Michiel Borkent released [cljbang.e
 (tap> (emacs/clj! (outline ~org-file)))
 ```
 
-There's that [org][cljbang-org] thing!
+Now the persistent connection makes sense: with Clojure on both sides, I can `def` and `defn` in Emacs and use these values later on. The babashka pod manages the Emacs subprocess and data exchange transparently. It allows you to treat Emacs as a library.
 
 Borkdude said about cljbang, "I'm not sure if any of this is a good idea, but it kinda works for me." I feel kind of the same, especially with a little [library help][cljbang-org] to make some gnarly elisp internals more clojure-y.
 
-[bbprocess]: https://github.com/babashka/process
 [cljbang-org]: https://github.com/kpassapk/cljbang-org
 [lambdaisland]: https://github.com/lambdaisland/cli
 [bb-cli]: https://github.com/babashka/cli
 [cljbang]: https://github.com/borkdude/cljbang.el
+
+See [examples](./examples/) for more. (Including gifs!)
 
 ## What's here
 
@@ -48,12 +49,13 @@ This project bundles in these excellent elisp libraries:
 It implements the [pod protocol](https://github.com/babashka/pods#the-protocol) to expose emacs
 itself as one Clojure namespace, `pod.kpassapk.emacs`, defining:
 
-- `clj!`, which takes Clojure and runs it inside emacs
+- `eval`, which evaluates elisp strings.
+- `clj!`, which evaluates Clojure code va cljbang.
 - `use-package!`, which (predictably) takes a `use-package` declaration and runs it in emacs
 
 See the [api](./doc/api.md) docs for more.
 
-## Quickstart
+## Quickstart with cljbang-org
 
 ```clojure
 (require '[babashka.pods :as pods])
@@ -90,9 +92,7 @@ See the [api](./doc/api.md) docs for more.
 ;;   :file "/abs/path/to/examples/sample.org"}]
 ```
 
-See [examples](./examples/) for more. (Including gifs!)
-
-### The clj! macro
+## The clj! macro
 
 `emacs/clj!` captures its body as forms, sends them to Emacs, and
 compiles / converts them to elisp with [cljbang.el](https://github.com/borkdude/cljbang.el)
